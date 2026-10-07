@@ -9,5 +9,7 @@ logs/
 *.duckdb.wal
 .user.yml
 
+data/raw/
+
 .env
 .DS_Store

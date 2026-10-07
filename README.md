@@ -1,13 +1,15 @@
 # lgps-benchmark
 
-dbt + DuckDB project.
+Benchmarking every Local Government Pension Scheme (LGPS) fund in England and
+Wales on costs, contributions, membership and asset growth over roughly ten
+years, built on dbt + DuckDB.
 
 ## Setup
 
 ```bash
-python3 -m venv .venv
+uv venv --python 3.12
 source .venv/bin/activate
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ## Usage
@@ -19,3 +21,24 @@ dbt debug
 dbt run
 dbt test
 ```
+
+## Data
+
+Source: the "Pension funds data table" spreadsheets (SF3 returns) published
+in each year's "Local government pension scheme funds for England and Wales"
+statistical release, from the
+[LGPS statistics collection](https://www.gov.uk/government/collections/local-government-pension-scheme)
+on gov.uk. Files are kept under their original names in `data/raw/` (not
+committed to git — re-run the download to repopulate).
+
+| Year | Release page | File |
+|---|---|---|
+| 2016 to 2017 | https://www.gov.uk/government/statistics/local-government-pension-scheme-funds-for-england-and-wales-2016-to-2017 | `LA_drop_down.xlsx` |
+| 2017 to 2018 | https://www.gov.uk/government/statistics/local-government-pension-scheme-funds-for-england-and-wales-2017-to-2018 | `LA_drop_down_revised.xlsx` |
+| 2018 to 2019 | https://www.gov.uk/government/statistics/local-government-pension-scheme-funds-for-england-and-wales-2018-to-2019 | `LA_drop_down_2018-19.xlsx` |
+| 2019 to 2020 | https://www.gov.uk/government/statistics/local-government-pension-scheme-funds-for-england-and-wales-2019-to-2020 | `LA_drop_down_2019-20_revised.xlsx` |
+| 2020 to 2021 | https://www.gov.uk/government/statistics/local-government-pension-scheme-funds-for-england-and-wales-2020-to-2021 | `LA_drop_down_2020-21_revised.xlsx` |
+| 2021 to 2022 | https://www.gov.uk/government/statistics/local-government-pension-scheme-funds-for-england-and-wales-2021-to-2022 | `LA_drop_down_2021-22_April_update.xlsx` |
+| 2022 to 2023 | https://www.gov.uk/government/statistics/local-government-pension-scheme-funds-for-england-and-wales-2022-to-2023 | `LA_drop_down_2022-23_-_ecomms_-_July_2024.xlsx` |
+| 2023 to 2024 | https://www.gov.uk/government/statistics/local-government-pension-scheme-funds-for-england-and-wales-2023-to-2024 | `LA_drop_down_2023-24_-_June_2025_-_ecomms.xlsx` |
+| 2024 to 2025 | https://www.gov.uk/government/statistics/local-government-pension-scheme-funds-for-england-and-wales-2024-to-2025 | `LA_drop_down_2024-25_-_ecomms.xlsx` |
