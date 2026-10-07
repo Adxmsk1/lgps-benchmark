@@ -150,3 +150,26 @@ Ask a question, or re-run the eval:
 python3 scripts/ask.py "Which fund had the highest total income in 2022-23?"
 python3 eval/run_eval.py
 ```
+
+Run the dashboard:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+## The dashboard
+
+A Python/Streamlit benchmarking dashboard, built as a second, publicly
+deployable artifact alongside the Power BI one -- Power BI demonstrates the
+tool used day to day in local government and finance; this one can actually
+host the AI layer live rather than sitting next to it as a separate script.
+
+Pick any of the 94 funds and it shows: fund value growth indexed against the
+England & Wales average, where that fund ranks on admin cost per member
+against every other fund, membership composition over time, and the nearest
+funds by cost efficiency. The "Ask a question" box at the bottom is a
+placeholder for now -- it answers a few example questions from the real
+data, but isn't wired up to the live Claude-based layer in `scripts/ask.py`
+yet. A public page that lets anyone trigger an LLM call on demand needs
+rate-limiting and a hosted API key first, which is a deliberate follow-up
+once this is ready to publish, not an oversight.
