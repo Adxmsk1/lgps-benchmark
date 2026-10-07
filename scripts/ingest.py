@@ -1,16 +1,7 @@
-"""
-Reconciles the 9 yearly "Pension funds data table" (SF3) spreadsheets in
-data/raw/ into one tidy table: (ecode, local_authority, year, measure, value).
-
-2016-17 to 2022-23 use sheets "Data" (expenditure & income) and "Data2"
-(membership + assets), with the header row shifting by a row or two between
-years. 2023-24 onwards splits into "Data_Exp_and_Inc", "Data_Memo_SectionA"
-and "Data_Memo_SectionB_to_F", with a machine-readable "Variable" code row.
-
-Header positions aren't hardcoded: each sheet's header is found by
-searching for the "Local Authority" cell, and identifier and measure
-columns are read relative to that.
-"""
+"""Reconciles the 9 yearly SF3 spreadsheets in data/raw/ into one tidy
+table: (ecode, local_authority, year, measure, value). Sheet layout and
+header position both vary by year, so headers are found by searching for
+the "Local Authority" cell rather than assumed by row/column number."""
 
 import re
 from pathlib import Path
@@ -34,8 +25,6 @@ FILES_BY_YEAR = {
     "2024-25": "LA_drop_down_2024-25_-_ecomms.xlsx",
 }
 
-# Measure codes for the Expenditure & Income sheet, in the fixed
-# left-to-right order both eras use.
 EXP_INC_MEASURES = [
     "pension", "lump_retire", "lump_opt", "lump_death", "othben",
     "transf_out", "penprem", "mgmtexp", "othexp", "totpens_exp",
@@ -62,9 +51,7 @@ def cell_text(ws, row, col):
 
 
 def get_label(ws, header_row, col):
-    """A column's descriptive label: on the header row itself (new-format
-    sheets), or two rows above it (old-format sheets, where the header row
-    only carries id-column names like 'No.'/'Local Authority'/'Ecodes')."""
+    """Label on the header row itself, or two rows above for old-format sheets."""
     return cell_text(ws, header_row, col) or cell_text(ws, header_row - 2, col)
 
 
@@ -101,9 +88,7 @@ def find_measure_columns(ws, header_row, max_col):
 
 
 def iter_fund_rows(ws, header_row, ecode_col, max_col):
-    """Yield (row_index, ecode) for every row below the header that holds a
-    real fund (or England/Wales/England & Wales aggregate) record, skipping
-    blank rows, the 'ZZZ' placeholder row, and trailing footnote text."""
+    """Yield (row, ecode) for each real fund or national-total row."""
     for r in range(header_row + 1, ws.max_row + 1):
         ecode = cell_text(ws, r, ecode_col)
         if ecode and ECODE_RE.match(ecode):
@@ -138,13 +123,6 @@ def extract_exp_inc(wb, year):
     )
 
 
-# Membership totals live in "Data2" (2016-17 to 2022-23) or
-# "Data_Memo_SectionA" (2023-24 on). Both split each measure across five
-# columns, one per employer group plus a total, but only the old sheet
-# repeats one label across all five and needs the "Total" sub-header to
-# find the aggregate; the new sheet gives the total its own distinct
-# wording instead. Each entry below is (broad pattern, exact total phrase)
-# to handle both.
 MEMBERSHIP_PATTERNS = {
     "empler_tot": ("number of employers", "total number of employers"),
     "contmem_tot": ("number of contributing members", "total number of contributing members"),
@@ -173,12 +151,7 @@ def find_exact_label_column(ws, header_row, text, max_col):
 
 
 def resolve_total_column(ws, header_row, broad, total_phrase, max_col):
-    """Resolve the total column per MEMBERSHIP_PATTERNS above. The new
-    sheets also have an unrelated "total" column with similar wording
-    (e.g. "Total number of members were flexible retirement applies" for
-    totmember_tot's "Total number of members"), so the first pass needs
-    an exact match, not a substring.
-    """
+    """total_phrase must match exactly; broad plus the 'Total' sub-header is the fallback."""
     total_cols = find_exact_label_column(ws, header_row, total_phrase, max_col)
     if len(total_cols) == 1:
         return total_cols[0]
@@ -284,10 +257,6 @@ def main():
           f"{tidy['year'].nunique()} years, {tidy['ecode'].nunique()} fund codes")
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    # Written via DuckDB rather than tidy.to_parquet(): pandas' parquet
-    # writer needs pyarrow, which isn't installed and can't be added with
-    # pip in this uv-managed venv. DuckDB is already a dependency and
-    # writes parquet natively.
     duckdb.sql(f"COPY tidy TO '{OUT_PATH}' (FORMAT PARQUET)")
     print(f"Wrote {OUT_PATH}")
 

@@ -6,12 +6,12 @@ years, built on dbt + DuckDB.
 
 ## The question
 
-Every LGPS fund (Barnet's included) publishes the same annual return, but
-comparing funds means pulling 9 years of spreadsheets that each lay the data
-out slightly differently and reconciling them by hand. This project builds
-that comparison once, as a pipeline, and uses it to ask sector-wide
-questions a single year's return can't answer on its own: is the sector
-still cash-flow positive, is it maturing, and does fund size actually buy
+Every LGPS fund publishes the same annual return, but comparing funds means
+pulling 9 years of spreadsheets that each lay the data out slightly
+differently and reconciling them by hand. This project builds that
+comparison once, as a pipeline, and uses it to ask sector-wide questions a
+single year's return can't answer on its own: is the sector still
+cash-flow positive, is it maturing, and does fund size actually buy
 efficiency.
 
 ## The data

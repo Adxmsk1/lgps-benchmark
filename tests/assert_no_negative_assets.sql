@@ -1,5 +1,4 @@
--- Fails if any fund reports a negative market value for its pension assets.
--- dbt tests pass when the query returns zero rows.
+-- dbt test: fails if this returns any rows (negative fund value)
 
 select ecode, local_authority, year, market_value_start_of_year, market_value_end_of_year
 from {{ ref('fct_lgps_fund_year') }}

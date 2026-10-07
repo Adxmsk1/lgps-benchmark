@@ -1,14 +1,8 @@
--- Raw tidy (ecode, local_authority, year, measure, value) rows produced by
--- scripts/ingest.py, with aggregate rows (England, Wales, England & Wales)
--- flagged separately from individual fund rows.
+-- Output of scripts/ingest.py. National-total rows flagged separately below.
 
 select
     ecode,
-    -- Strip trailing footnote/revision markers like "[note a]" or "(R)":
-    -- the same fund's name sometimes carries one in one sheet (e.g. the
-    -- Exp & Income return) but not another (e.g. the membership return)
-    -- within the same year, which would otherwise split one fund into two
-    -- rows once pivoted.
+    -- strip footnote markers like "[note a]" or "(R)", which some sheets attach to a fund name and others don't
     trim(regexp_replace(local_authority, '\s*[\[\(][^\]\)]*[\]\)]\s*$', '')) as local_authority,
     year,
     measure,

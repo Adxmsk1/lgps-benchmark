@@ -1,8 +1,4 @@
--- One row per fund per year, measures pivoted into columns. This is the
--- table meant for Power BI / benchmarking: costs and contributions come
--- from the SF3 Expenditure & Income return, membership and fund market
--- value from the SF3 memorandum items. All £ figures are in £000s, as
--- published.
+-- One row per fund per year, measures pivoted into columns. £ figures in £000s.
 
 select
     ecode || '_' || year as fund_year_key,

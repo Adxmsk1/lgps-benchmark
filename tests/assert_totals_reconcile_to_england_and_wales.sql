@@ -1,7 +1,4 @@
--- Fails if the sum of a measure across all individual funds in a year
--- doesn't match the published "England & Wales" (EW001) total for that
--- measure within rounding tolerance. dbt tests pass when the query returns
--- zero rows.
+-- dbt test: fails if fund totals don't sum to the published EW001 total, within tolerance
 
 with fund_totals as (
     select year, measure, sum(value) as summed_value
