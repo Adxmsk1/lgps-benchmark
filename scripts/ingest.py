@@ -1,17 +1,15 @@
 """
-Reconcile the 9 yearly "Pension funds data table" (SF3) spreadsheets in
+Reconciles the 9 yearly "Pension funds data table" (SF3) spreadsheets in
 data/raw/ into one tidy table: (ecode, local_authority, year, measure, value).
 
-The yearly files use two different layouts:
-  - 2016-17 .. 2022-23: sheets "Data" (expenditure & income) and "Data2"
-    (membership + assets), with the header row shifting up/down by a row or
-    two between years.
-  - 2023-24 .. 2024-25: sheets "Data_Exp_and_Inc", "Data_Memo_SectionA" and
-    "Data_Memo_SectionB_to_F", with a machine-readable "Variable" code row.
+2016-17 to 2022-23 use sheets "Data" (expenditure & income) and "Data2"
+(membership + assets), with the header row shifting by a row or two between
+years. 2023-24 onwards splits into "Data_Exp_and_Inc", "Data_Memo_SectionA"
+and "Data_Memo_SectionB_to_F", with a machine-readable "Variable" code row.
 
-Rather than hardcoding row/column numbers per year, this script locates the
-header row in each sheet by searching for the "Local Authority" cell, then
-reads identifier and measure columns relative to that row.
+Header positions aren't hardcoded: each sheet's header is found by
+searching for the "Local Authority" cell, and identifier and measure
+columns are read relative to that.
 """
 
 import re
@@ -36,8 +34,8 @@ FILES_BY_YEAR = {
     "2024-25": "LA_drop_down_2024-25_-_ecomms.xlsx",
 }
 
-# Canonical measure codes for the Expenditure & Income sheet, in the fixed
-# left-to-right order both eras use (confirmed by inspecting every year).
+# Measure codes for the Expenditure & Income sheet, in the fixed
+# left-to-right order both eras use.
 EXP_INC_MEASURES = [
     "pension", "lump_retire", "lump_opt", "lump_death", "othben",
     "transf_out", "penprem", "mgmtexp", "othexp", "totpens_exp",
@@ -140,21 +138,13 @@ def extract_exp_inc(wb, year):
     )
 
 
-# Membership measures live in "Data2" (2016-17 .. 2022-23), or in
-# "Data_Memo_SectionA" from 2023-24 onwards. Both eras break each measure
-# into five columns (one per employer group, plus an aggregate), but
-# disambiguate the aggregate column differently:
-#   - old sheet: all five columns share one literal label (e.g. "Number of
-#     pensioners:retired employees or dependents"); only a "Total" sub-header
-#     one row below marks the aggregate.
-#   - new sheet: each employer-group column has its own label (e.g.
-#     "Pensioners: Employers group 1"), and the aggregate has distinct
-#     wording ("Total number of pensioners") with no sub-header at all.
-# Each entry below is (broad_pattern, total_phrase): total_phrase is tried
-# first since it uniquely identifies the new sheet's aggregate column; if
-# that finds no match (the old sheet's labels don't say "total number of
-# pensioners", just "number of pensioners"), broad_pattern plus the "Total"
-# sub-header resolves the old sheet's aggregate instead.
+# Membership totals live in "Data2" (2016-17 to 2022-23) or
+# "Data_Memo_SectionA" (2023-24 on). Both split each measure across five
+# columns, one per employer group plus a total, but only the old sheet
+# repeats one label across all five and needs the "Total" sub-header to
+# find the aggregate; the new sheet gives the total its own distinct
+# wording instead. Each entry below is (broad pattern, exact total phrase)
+# to handle both.
 MEMBERSHIP_PATTERNS = {
     "empler_tot": ("number of employers", "total number of employers"),
     "contmem_tot": ("number of contributing members", "total number of contributing members"),
@@ -183,13 +173,11 @@ def find_exact_label_column(ws, header_row, text, max_col):
 
 
 def resolve_total_column(ws, header_row, broad, total_phrase, max_col):
-    """See MEMBERSHIP_PATTERNS for why two patterns are needed.
-
-    The new-format sheets also have a "total" column for unrelated
-    employer-group breakdowns whose label happens to start with the same
-    words (e.g. "Total number of members were flexible retirement applies"
-    for totmember_tot's "Total number of members") so the first stage
-    requires an exact label match, not just a substring.
+    """Resolve the total column per MEMBERSHIP_PATTERNS above. The new
+    sheets also have an unrelated "total" column with similar wording
+    (e.g. "Total number of members were flexible retirement applies" for
+    totmember_tot's "Total number of members"), so the first pass needs
+    an exact match, not a substring.
     """
     total_cols = find_exact_label_column(ws, header_row, total_phrase, max_col)
     if len(total_cols) == 1:

@@ -21,7 +21,7 @@ in each year's "Local government pension scheme funds for England and Wales"
 statistical release, from the
 [LGPS statistics collection](https://www.gov.uk/government/collections/local-government-pension-scheme)
 on gov.uk. Files are kept under their original names in `data/raw/` (not
-committed to git — re-run the download to repopulate).
+committed to git; re-run the download to repopulate).
 
 | Year | Release page | File |
 |---|---|---|
@@ -50,10 +50,10 @@ data/raw/*.xlsx  --[scripts/ingest.py]-->  data/processed/lgps_sf3_tidy.parquet 
    everything else relative to that.
 2. **`dbt build`** loads the tidy parquet into DuckDB (`stg_sf3__tidy`),
    then pivots it into one row per fund per year with 23 measures as
-   columns (`fct_lgps_fund_year`) — costs, contributions, membership and
+   columns (`fct_lgps_fund_year`): costs, contributions, membership and
    fund market value. Data tests check for unique fund-year keys, no
-   negative fund values, and — the one that matters most — that summing
-   every individual fund matches the *published* England & Wales total for
+   negative fund values, and, most importantly, that summing every
+   individual fund matches the *published* England & Wales total for
    every year and measure, within 0.1%.
 3. The export step copies `fct_lgps_fund_year` to a flat CSV for Power BI,
    which can't read DuckDB's file format directly.
@@ -65,19 +65,19 @@ Power BI one: Power BI demonstrates the tool used day to day in local
 government and finance, while this one can be published as a public,
 standalone web page.
 
-It opens on a sector-wide view — no single fund drives it — built around
+It opens on a sector-wide view (no single fund drives it), built around
 four descriptive questions:
 
-- **Total sector assets** — nominal growth over the 9 years, £258.8bn to
+- **Total sector assets**: nominal growth over the 9 years, £258.8bn to
   £402.3bn (+55%).
-- **Contributions vs. benefits paid** — the sector's net cash flow. Roughly
+- **Contributions vs. benefits paid**: the sector's net cash flow. Roughly
   balanced in 2016-17 (£9.5bn each); by 2024-25 benefits paid (£15.4bn)
-  outstrips contributions (£13.3bn) by about £2bn a year — a scheme
+  outstrips contributions (£13.3bn) by about £2bn a year, a scheme
   maturing into net outflow.
-- **Sector membership composition** — pensioners grew 36% over the period
+- **Sector membership composition**: pensioners grew 36% over the period
   against 10% for contributing members, the same maturing signal from the
   membership side.
-- **Does fund size buy efficiency?** — admin cost per member plotted
+- **Does fund size buy efficiency?**: admin cost per member plotted
   against fund size across all 87 funds. The correlation is -0.19: bigger
   funds aren't meaningfully cheaper to run per member.
 

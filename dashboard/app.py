@@ -3,7 +3,7 @@ LGPS sector benchmarking dashboard.
 
     streamlit run dashboard/app.py
 
-Reads fct_lgps_fund_year from dev.duckdb (built by `dbt build` -- see
+Reads fct_lgps_fund_year from dev.duckdb (built by `dbt build`, see
 README.md). Sector-wide descriptive analysis first; a single fund can be
 highlighted on the scale chart, but no fund drives the default view.
 """
@@ -167,7 +167,7 @@ with c1:
 
 with c2:
     st.subheader("Contributions vs. benefits paid")
-    st.caption("The sector's net cash flow -- a widening gap means a maturing scheme")
+    st.caption("The sector's net cash flow: a widening gap means a maturing scheme")
     fig2 = go.Figure()
     fig2.add_trace(go.Scatter(
         x=sector["year"], y=sector["total_contributions"] / 1e3,
