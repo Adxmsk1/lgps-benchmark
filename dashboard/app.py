@@ -5,12 +5,7 @@ LGPS sector benchmarking dashboard.
 
 Reads fct_lgps_fund_year from dev.duckdb (built by `dbt build` -- see
 README.md). Sector-wide descriptive analysis first; a single fund can be
-highlighted on the scale chart, but no fund drives the default view. The
-question box at the bottom is a placeholder: it answers a handful of
-example questions from the real data, but isn't yet wired up to the live
-Claude-based question-to-SQL layer in scripts/ask.py -- that needs
-rate-limiting and a hosted API key before it's safe to expose publicly, and
-is a follow-up once this is published.
+highlighted on the scale chart, but no fund drives the default view.
 """
 
 from pathlib import Path
@@ -41,7 +36,6 @@ st.markdown("""
 .flag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;}
 .flag-bad{background:#F3E1D9;color:#9A3B28;}
 .flag-good{background:#E3EDE1;color:#3F6E46;}
-.ai-box{background:#FBF8F1;border:1px solid #E3DCCB;border-radius:10px;padding:16px 20px;margin-top:8px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -72,8 +66,6 @@ def load_sector_by_year() -> pd.DataFrame:
             sum(total_pensioners) as total_pensioners,
             sum(total_deferred_members) as total_deferred,
             sum(contributions_employees + contributions_employers) as total_contributions,
-            sum(investment_income) as total_investment_income,
-            sum(total_income) as total_income,
             sum(pension_benefits_paid + lump_sums_retirement + lump_sums_optional
                 + lump_sums_death + other_benefits) as benefits_paid
         from fct_lgps_fund_year
@@ -263,23 +255,3 @@ with t2:
     st.dataframe(pricey, hide_index=True, width="stretch")
 
 st.caption(f"The 10 largest funds hold {top10_share:.0f}% of total sector assets ({latest_year}) · source: gov.uk LGPS SF3 returns, {first.year} to {latest_year}")
-
-st.write("")
-st.markdown('<div class="ai-box">', unsafe_allow_html=True)
-st.markdown("**Ask a question**")
-st.caption("Placeholder -- answers a few example questions from the real data. The live Claude-based version isn't wired up here yet (see scripts/ask.py).")
-
-EXAMPLES = {
-    f"What was total sector investment income in {latest_year}?": f"£{latest.total_investment_income:,.0f}k",
-    f"How many pensioners were there across England & Wales in {latest_year}?": f"{latest.total_pensioners:,.0f}",
-    f"By how much did total sector assets grow between {first.year} and {latest_year}?": f"{assets_growth:.0f}%",
-}
-if highlight != "None":
-    row = load_cost_scale(latest_year)
-    row = row.loc[row.local_authority == highlight].iloc[0]
-    EXAMPLES[f"How many members did {highlight} have in {latest_year}?"] = f"{row.total_members:,.0f}"
-
-question = st.selectbox("Example question", list(EXAMPLES.keys()))
-if st.button("Ask"):
-    st.success(EXAMPLES[question])
-st.markdown("</div>", unsafe_allow_html=True)

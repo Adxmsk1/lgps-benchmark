@@ -2,15 +2,17 @@
 
 Benchmarking every Local Government Pension Scheme (LGPS) fund in England and
 Wales on costs, contributions, membership and asset growth over roughly ten
-years, with a natural-language question box on top, built on dbt + DuckDB.
+years, built on dbt + DuckDB.
 
 ## The question
 
 Every LGPS fund (Barnet's included) publishes the same annual return, but
 comparing funds means pulling 9 years of spreadsheets that each lay the data
 out slightly differently and reconciling them by hand. This project builds
-that comparison once, as a pipeline, and tests whether a plain-English
-question box on top of it can actually be trusted to answer correctly.
+that comparison once, as a pipeline, and uses it to ask sector-wide
+questions a single year's return can't answer on its own: is the sector
+still cash-flow positive, is it maturing, and does fund size actually buy
+efficiency.
 
 ## The data
 
@@ -56,55 +58,31 @@ data/raw/*.xlsx  --[scripts/ingest.py]-->  data/processed/lgps_sf3_tidy.parquet 
 3. The export step copies `fct_lgps_fund_year` to a flat CSV for Power BI,
    which can't read DuckDB's file format directly.
 
-## The AI layer
+## The dashboard
 
-`scripts/ask.py` turns a plain-English question into a SQL query against
-`fct_lgps_fund_year`, using the Claude API (`claude-haiku-4-5`) with a
-system prompt that describes the table's schema and requires the model to
-output nothing but a single `SELECT` statement. The harness refuses to run
-anything else (no `INSERT`/`DROP`/`ATTACH`/etc.) before executing it against
-DuckDB.
+A Python/Streamlit dashboard, built as a second artifact alongside the
+Power BI one: Power BI demonstrates the tool used day to day in local
+government and finance, while this one can be published as a public,
+standalone web page.
 
-```bash
-python3 scripts/ask.py "What was Barnet's total expenditure in 2023-24?"
-```
+It opens on a sector-wide view — no single fund drives it — built around
+four descriptive questions:
 
-**The test**: `eval/build_eval_set.py` generates 50 questions by sampling
-real funds, years and measures and computing each expected answer directly
-from the data with plain SQL — independent of the AI layer, so the eval
-can't just agree with whatever the model says. The questions span all four
-benchmarking dimensions (costs, contributions, membership, asset growth)
-plus a few ranking questions. `eval/run_eval.py` runs every question through
-the AI layer and scores it against the known answer (exact match for fund
-names, 1% relative tolerance for numbers).
+- **Total sector assets** — nominal growth over the 9 years, £258.8bn to
+  £402.3bn (+55%).
+- **Contributions vs. benefits paid** — the sector's net cash flow. Roughly
+  balanced in 2016-17 (£9.5bn each); by 2024-25 benefits paid (£15.4bn)
+  outstrips contributions (£13.3bn) by about £2bn a year — a scheme
+  maturing into net outflow.
+- **Sector membership composition** — pensioners grew 36% over the period
+  against 10% for contributing members, the same maturing signal from the
+  membership side.
+- **Does fund size buy efficiency?** — admin cost per member plotted
+  against fund size across all 87 funds. The correlation is -0.19: bigger
+  funds aren't meaningfully cheaper to run per member.
 
-## Results
-
-**48/50 correct (96%)** — full breakdown in `eval/results.md`.
-
-Both failures are genuine AI-layer limitations, not harness bugs:
-
-- **Ambiguous fund names.** "By how much did the market value of *South
-  Yorkshire Pensions Fund*'s fund grow during 2016-17?" — the model wrote
-  `WHERE local_authority ILIKE '%South Yorkshire%'`, which also matches a
-  *different* fund, "South Yorkshire PTA" (the Passenger Transport
-  Authority's separate superannuation fund). The query returned two rows
-  instead of one, even though the question gave the fund's full name. A
-  stricter match (or a two-step "find the fund, then ask about it" prompt)
-  would fix this.
-- **Chain-of-thought leaking into the output.** On one question the model
-  second-guessed its own first draft mid-response ("Wait, I need to correct
-  this...") and that reasoning text ended up inside the SQL output, which
-  then failed to parse. The system prompt says to output *only* SQL; a
-  cheap, fast model doesn't always obey that under self-correction. Using a
-  larger model, or asking for the SQL inside a fenced block and stripping
-  everything else, would both help.
-
-Neither is a case of the model getting the *arithmetic* wrong — in every
-failure, the underlying DuckDB query was itself a reasonable (if overly
-broad, or malformed) translation of the question. The risk this system
-actually carries in practice is silent over-matching on fund names, not bad
-maths.
+A fund can still be highlighted on the scale chart for anyone who wants to
+find their own council, but it's an optional overlay, not the default view.
 
 ## Setup
 
@@ -112,14 +90,6 @@ maths.
 uv venv --python 3.12
 source .venv/bin/activate
 uv pip install -r requirements.txt
-```
-
-Copy `.env.example` to `.env` and add your own Anthropic API key (needed
-only for `scripts/ask.py` and `eval/run_eval.py`):
-
-```bash
-cp .env.example .env
-# then edit .env and set ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ## Usage
@@ -144,32 +114,8 @@ duckdb.connect('dev.duckdb').sql('''
 "
 ```
 
-Ask a question, or re-run the eval:
-
-```bash
-python3 scripts/ask.py "Which fund had the highest total income in 2022-23?"
-python3 eval/run_eval.py
-```
-
 Run the dashboard:
 
 ```bash
 streamlit run dashboard/app.py
 ```
-
-## The dashboard
-
-A Python/Streamlit benchmarking dashboard, built as a second, publicly
-deployable artifact alongside the Power BI one -- Power BI demonstrates the
-tool used day to day in local government and finance; this one can actually
-host the AI layer live rather than sitting next to it as a separate script.
-
-Pick any of the 94 funds and it shows: fund value growth indexed against the
-England & Wales average, where that fund ranks on admin cost per member
-against every other fund, membership composition over time, and the nearest
-funds by cost efficiency. The "Ask a question" box at the bottom is a
-placeholder for now -- it answers a few example questions from the real
-data, but isn't wired up to the live Claude-based layer in `scripts/ask.py`
-yet. A public page that lets anyone trigger an LLM call on demand needs
-rate-limiting and a hosted API key first, which is a deliberate follow-up
-once this is ready to publish, not an oversight.
