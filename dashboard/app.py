@@ -90,10 +90,16 @@ def load_cost_scale(year: str) -> pd.DataFrame:
 
 @st.cache_data
 def load_fund_history(ecode: str) -> pd.DataFrame:
-    return get_con().execute("""
-        select year, market_value_end_of_year
+    df = get_con().execute("""
+        select year, market_value_end_of_year, total_members, admin_and_mgmt_costs,
+               contributions_employees + contributions_employers as contributions,
+               pension_benefits_paid + lump_sums_retirement + lump_sums_optional
+                   + lump_sums_death + other_benefits as benefits_paid,
+               total_contributing_members, total_pensioners, total_deferred_members
         from fct_lgps_fund_year where ecode = ? order by year
     """, [ecode]).df()
+    df["cost_per_member"] = df.admin_and_mgmt_costs * 1000.0 / df.total_members
+    return df
 
 
 @st.cache_data
@@ -138,19 +144,39 @@ top10_share = load_concentration(snapshot_year)
 assets_growth = (latest.total_assets / first.total_assets - 1) * 100
 members_growth = (latest.total_members / first.total_members - 1) * 100
 net_flow = latest.total_contributions - latest.benefits_paid
+net_flow_first = first.total_contributions - first.benefits_paid
 
 sector["assets_pct_change"] = sector["total_assets"].pct_change() * 100
 pensioner_growth = (latest.total_pensioners / first.total_pensioners - 1) * 100
 contributing_growth = (latest.total_contributing / first.total_contributing - 1) * 100
 
+def flow_desc(value_000s):
+    sign = "shortfall" if value_000s < 0 else "surplus"
+    return f"£{abs(value_000s)/1e3:,.0f}m {sign}"
+
+
 fund_growth = fund_hist = None
+fund_net_flow = fund_rank = fund_cpm = None
+fund_pens_growth = fund_contrib_growth = None
 if highlight != "None":
     ecode = funds.loc[funds.local_authority == highlight, "ecode"].iloc[0]
     fund_hist_all = load_fund_history(ecode)
     fund_hist = fund_hist_all[fund_hist_all.year.isin(sector["year"])].reset_index(drop=True)
+
     if len(fund_hist) >= 2 and fund_hist.iloc[0].market_value_end_of_year:
-        fund_growth = (fund_hist.iloc[-1].market_value_end_of_year
-                        / fund_hist.iloc[0].market_value_end_of_year - 1) * 100
+        fh0, fh1 = fund_hist.iloc[0], fund_hist.iloc[-1]
+        fund_growth = (fh1.market_value_end_of_year / fh0.market_value_end_of_year - 1) * 100
+        if fh0.total_pensioners and fh0.total_contributing_members:
+            fund_pens_growth = (fh1.total_pensioners / fh0.total_pensioners - 1) * 100
+            fund_contrib_growth = (fh1.total_contributing_members / fh0.total_contributing_members - 1) * 100
+
+    if len(fund_hist) >= 1:
+        fund_net_flow = fund_hist.iloc[-1].contributions - fund_hist.iloc[-1].benefits_paid
+
+    is_hl_row = cpm["local_authority"] == highlight
+    if is_hl_row.any():
+        fund_rank = int(cpm.reset_index(drop=True).index[is_hl_row][0]) + 1
+        fund_cpm = cpm.loc[is_hl_row, "cost_per_member"].iloc[0]
 
 k1, k2, k3, k4 = st.columns(4)
 with k1:
@@ -263,13 +289,22 @@ with c2:
         font=dict(color="#1C2B3A"),
     )
     st.plotly_chart(fig2, width="stretch")
+    if first.year == snapshot_year:
+        sector_line = f"In {snapshot_year}, the sector ran a {flow_desc(net_flow)}."
+    else:
+        sector_line = (
+            f"The sector ran a {flow_desc(net_flow_first)} in {first.year} and a "
+            f"{flow_desc(net_flow)} by {snapshot_year}."
+        )
+    fund_line = ""
+    if highlight != "None" and fund_net_flow is not None:
+        fund_line = f" {highlight} itself ran a {flow_desc(fund_net_flow)} in {snapshot_year}."
     insight(
-        f"Running a net cash outflow doesn't mean a fund is underfunded, investment "
-        f"income and asset sales can cover the gap, and LGPS funding levels are judged "
-        f"at triennial valuation, not on this chart. What it does mean is a rising "
-        f"reliance on investment returns rather than contributions to pay pensions, "
-        f"which raises the bar for those returns and pushes funds toward holding more "
-        f"assets that can be sold quickly when cash is needed."
+        f"{sector_line} Running a net cash outflow doesn't mean a fund is underfunded, "
+        f"investment income and asset sales can cover the gap, and LGPS funding levels "
+        f"are judged at triennial valuation, not on this chart. It does mean a rising "
+        f"reliance on investment returns to pay pensions, which raises the bar for "
+        f"those returns.{fund_line}"
     )
 
 st.write("")
@@ -296,13 +331,19 @@ with c3:
         font=dict(color="#1C2B3A"),
     )
     st.plotly_chart(fig3, width="stretch")
+    fund_member_line = ""
+    if highlight != "None" and fund_pens_growth is not None:
+        fund_member_line = (
+            f" {highlight}'s own mix moved similarly: pensioners {fund_pens_growth:+.0f}% "
+            f"against {fund_contrib_growth:+.0f}% for contributing members."
+        )
     insight(
         f"Pensioners grew {pensioner_growth:.0f}% over the period against {contributing_growth:.0f}% "
         f"for contributing members: the scheme is ageing. Fewer active members are paying "
         f"in relative to the number now drawing a pension, which is the membership-side "
         f"mirror of the widening cash-flow gap on the left, and the reason behind the "
         f"sector's longer-term shift toward income-generating and liability-matching "
-        f"assets over growth-seeking ones."
+        f"assets over growth-seeking ones.{fund_member_line}"
     )
 
 with c4:
@@ -329,13 +370,21 @@ with c4:
         font=dict(color="#1C2B3A"),
     )
     st.plotly_chart(fig4, width="stretch")
+    corr_strength = "no" if abs(corr) < 0.2 else ("a weak" if abs(corr) < 0.4 else "a moderate")
+    fund_rank_line = ""
+    if highlight != "None" and fund_rank is not None:
+        fund_rank_line = (
+            f"{highlight} sits at rank {fund_rank} of {len(cpm)} on this measure in "
+            f"{snapshot_year}, at £{fund_cpm:,.0f} per member. "
+        )
     insight(
-        f"This is administration cost specifically, running payroll, record-keeping, "
-        f"member queries, not investment management, where scale economies are better "
-        f"documented. That distinction is why England and Wales pooled LGPS investment "
-        f"management into vehicles like Border to Coast and Brunel rather than merging "
-        f"the funds themselves: it captures fee savings on the investment side without "
-        f"forcing through disruptive mergers of the smaller administering authorities."
+        f"{fund_rank_line}Across the sector there's {corr_strength} relationship between "
+        f"fund size and cost per member (correlation {corr:+.2f}). This is administration "
+        f"cost specifically, running payroll, record-keeping, member queries, not "
+        f"investment management, where scale economies are better documented. That "
+        f"distinction is why England and Wales pooled LGPS investment management into "
+        f"vehicles like Border to Coast and Brunel rather than merging the funds "
+        f"themselves."
     )
 
 st.write("")
