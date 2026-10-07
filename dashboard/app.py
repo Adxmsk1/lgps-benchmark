@@ -1,12 +1,14 @@
 """
-LGPS fund benchmarking dashboard.
+LGPS sector benchmarking dashboard.
 
     streamlit run dashboard/app.py
 
 Reads fct_lgps_fund_year from dev.duckdb (built by `dbt build` -- see
-README.md). The question box at the bottom is a placeholder: it answers a
-handful of example questions from the real data, but isn't yet wired up to
-the live Claude-based question-to-SQL layer in scripts/ask.py -- that needs
+README.md). Sector-wide descriptive analysis first; a single fund can be
+highlighted on the scale chart, but no fund drives the default view. The
+question box at the bottom is a placeholder: it answers a handful of
+example questions from the real data, but isn't yet wired up to the live
+Claude-based question-to-SQL layer in scripts/ask.py -- that needs
 rate-limiting and a hosted API key before it's safe to expose publicly, and
 is a follow-up once this is published.
 """
@@ -26,6 +28,7 @@ GOOD = "#3F6E46"
 BAD = "#9A3B28"
 MUTED = "#8C96A0"
 GRID = "#E3DCCB"
+GAP_FILL = "rgba(154,59,40,0.10)"
 
 st.set_page_config(page_title="LGPS fund benchmarking", page_icon="📊", layout="wide")
 
@@ -58,22 +61,29 @@ def load_fund_list() -> pd.DataFrame:
 
 
 @st.cache_data
-def load_fund_history(ecode: str) -> pd.DataFrame:
-    return get_con().execute(
-        "select * from fct_lgps_fund_year where ecode = ? order by year", [ecode]
-    ).df()
-
-
-@st.cache_data
-def load_ew_history() -> pd.DataFrame:
+def load_sector_by_year() -> pd.DataFrame:
     return get_con().sql("""
-        select year, market_value_end_of_year
-        from fct_lgps_fund_year where ecode = 'EW001' order by year
+        select
+            year,
+            count(*) as n_funds,
+            sum(market_value_end_of_year) as total_assets,
+            sum(total_members) as total_members,
+            sum(total_contributing_members) as total_contributing,
+            sum(total_pensioners) as total_pensioners,
+            sum(total_deferred_members) as total_deferred,
+            sum(contributions_employees + contributions_employers) as total_contributions,
+            sum(investment_income) as total_investment_income,
+            sum(total_income) as total_income,
+            sum(pension_benefits_paid + lump_sums_retirement + lump_sums_optional
+                + lump_sums_death + other_benefits) as benefits_paid
+        from fct_lgps_fund_year
+        where fund_type = 'fund'
+        group by year order by year
     """).df()
 
 
 @st.cache_data
-def load_cost_per_member(year: str) -> pd.DataFrame:
+def load_cost_scale(year: str) -> pd.DataFrame:
     return get_con().execute("""
         select ecode, local_authority, total_members, admin_and_mgmt_costs,
                admin_and_mgmt_costs * 1000.0 / total_members as cost_per_member
@@ -84,145 +94,175 @@ def load_cost_per_member(year: str) -> pd.DataFrame:
     """, [year]).df()
 
 
+@st.cache_data
+def load_concentration(year: str) -> float:
+    con = get_con()
+    top10 = con.execute("""
+        select sum(market_value_end_of_year) from (
+            select market_value_end_of_year from fct_lgps_fund_year
+            where fund_type = 'fund' and year = ?
+            order by market_value_end_of_year desc limit 10
+        )
+    """, [year]).fetchone()[0]
+    total = con.execute("""
+        select sum(market_value_end_of_year) from fct_lgps_fund_year
+        where fund_type = 'fund' and year = ?
+    """, [year]).fetchone()[0]
+    return top10 / total * 100
+
+
+sector = load_sector_by_year()
 funds = load_fund_list()
-default_idx = int(funds.index[funds.local_authority == "Barnet"][0]) if (funds.local_authority == "Barnet").any() else 0
+first, latest = sector.iloc[0], sector.iloc[-1]
+latest_year = latest["year"]
+
+cpm = load_cost_scale(latest_year)
+corr = cpm[["total_members", "cost_per_member"]].corr().iloc[0, 1]
+top10_share = load_concentration(latest_year)
+
+assets_growth = (latest.total_assets / first.total_assets - 1) * 100
+members_growth = (latest.total_members / first.total_members - 1) * 100
+net_flow = latest.total_contributions - latest.benefits_paid
 
 st.title("LGPS fund benchmarking")
+st.caption(f"{int(latest.n_funds)} England & Wales pension funds, {first.year} to {latest_year} · source: gov.uk SF3 returns")
 
-top_l, top_r = st.columns([3, 1])
-with top_l:
-    fund_name = st.selectbox("Fund", funds.local_authority, index=default_idx)
-ecode = funds.loc[funds.local_authority == fund_name, "ecode"].iloc[0]
-
-hist = load_fund_history(ecode)
-latest = hist.iloc[-1]
-latest_year = latest["year"]
-ew = load_ew_history()
-cpm = load_cost_per_member(latest_year)
-
-rank = int(cpm.reset_index(drop=True).index[cpm.ecode == ecode][0]) + 1
-n_funds = len(cpm)
-cost_per_member = cpm.loc[cpm.ecode == ecode, "cost_per_member"].iloc[0]
-high_cost = rank > n_funds * 0.6
-
-growth_pct = (latest["market_value_end_of_year"] / hist.iloc[0]["market_value_end_of_year"] - 1) * 100
-
-with top_r:
-    st.markdown(f"<div style='text-align:right; color:{MUTED}; font-size:13px; padding-top:28px;'>Latest year: {latest_year}</div>", unsafe_allow_html=True)
+hl_l, hl_r = st.columns([3, 1])
+with hl_r:
+    highlight = st.selectbox("Highlight a fund (optional)", ["None"] + list(funds.local_authority))
 
 k1, k2, k3, k4 = st.columns(4)
 with k1:
-    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Total members, {latest_year}</p>
-        <p class="kpi-value">{latest['total_members']:,.0f}</p>
-        <p class="kpi-sub" style="color:{MUTED};">{latest['total_contributing_members']:,.0f} contributing · {latest['total_pensioners']:,.0f} pensioners</p></div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Total sector assets, {latest_year}</p>
+        <p class="kpi-value">£{latest.total_assets/1e6:,.0f}bn</p>
+        <p class="kpi-sub" style="color:{GOOD};">↑ {assets_growth:.0f}% since {first.year}</p></div>""", unsafe_allow_html=True)
 with k2:
-    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Fund value, end of {latest_year}</p>
-        <p class="kpi-value">£{latest['market_value_end_of_year']/1e6:,.2f}bn</p>
-        <p class="kpi-sub" style="color:{GOOD if growth_pct >= 0 else BAD};">{'↑' if growth_pct >= 0 else '↓'} {abs(growth_pct):.0f}% since {hist.iloc[0]['year']}</p></div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Total members, {latest_year}</p>
+        <p class="kpi-value">{latest.total_members/1e6:,.2f}m</p>
+        <p class="kpi-sub" style="color:{GOOD};">↑ {members_growth:.0f}% since {first.year}</p></div>""", unsafe_allow_html=True)
 with k3:
-    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Total expenditure, {latest_year}</p>
-        <p class="kpi-value">£{latest['total_expenditure']/1e3:,.1f}m</p>
-        <p class="kpi-sub" style="color:{MUTED};">vs £{latest['total_income']/1e3:,.1f}m income</p></div>""", unsafe_allow_html=True)
+    flow_flag = "flag-bad" if net_flow < 0 else "flag-good"
+    flow_label = "cash-flow negative" if net_flow < 0 else "cash-flow positive"
+    flow_sign = "-" if net_flow < 0 else ""
+    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Contributions &minus; benefits paid</p>
+        <p class="kpi-value">{flow_sign}£{abs(net_flow)/1e3:,.0f}m</p>
+        <p class="kpi-sub"><span class="flag {flow_flag}">{flow_label}</span></p></div>""", unsafe_allow_html=True)
 with k4:
-    flag_class = "flag-bad" if high_cost else "flag-good"
-    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Admin cost per member</p>
-        <p class="kpi-value">£{cost_per_member:,.0f}</p>
-        <p class="kpi-sub"><span class="flag {flag_class}">{rank} of {n_funds} funds</span></p></div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Funds in the sector</p>
+        <p class="kpi-value">{int(latest.n_funds)}</p>
+        <p class="kpi-sub" style="color:{MUTED};">down from {int(first.n_funds)} in {first.year} (mergers)</p></div>""", unsafe_allow_html=True)
 
 st.write("")
-c1, c2 = st.columns([1.15, 0.85])
+c1, c2 = st.columns(2)
 
 with c1:
-    st.subheader("Fund value growth vs. the England & Wales average")
-    st.caption(f"Indexed to {hist.iloc[0]['year']} = 100, so fund size doesn't distort the comparison")
-
-    base_year = hist.iloc[0]["year"]
-    base_value = hist.iloc[0]["market_value_end_of_year"]
-    ew_base = ew.loc[ew.year == base_year, "market_value_end_of_year"].iloc[0]
-    ew_aligned = ew[ew.year >= base_year]
-
+    st.subheader("Total sector assets")
+    st.caption("Sum of fund value at year end, all funds, £bn nominal")
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=hist["year"], y=hist["market_value_end_of_year"] / base_value * 100,
-        name=fund_name, line=dict(color=ACCENT, width=2.5), mode="lines",
-    ))
-    fig.add_trace(go.Scatter(
-        x=ew_aligned["year"], y=ew_aligned["market_value_end_of_year"] / ew_base * 100,
-        name="England & Wales average", line=dict(color=ACCENT2, width=2, dash="dash"), mode="lines",
+        x=sector["year"], y=sector["total_assets"] / 1e6,
+        line=dict(color=ACCENT, width=2.5), fill="tozeroy",
+        fillcolor="rgba(163,102,31,0.08)", mode="lines+markers",
+        marker=dict(size=5),
     ))
     fig.update_layout(
-        height=280, margin=dict(l=0, r=0, t=10, b=0),
+        height=270, margin=dict(l=0, r=0, t=10, b=0), showlegend=False,
         plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID, title="Index"),
-        legend=dict(orientation="h", yanchor="bottom", y=-0.25, x=0),
+        xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID, title="£bn", rangemode="tozero"),
         font=dict(color="#1C2B3A"),
     )
     st.plotly_chart(fig, width="stretch")
 
 with c2:
-    st.subheader(f"Admin cost per member, {latest_year}")
-    st.caption(f"{fund_name} against all {n_funds} funds, lowest to highest cost")
-
-    median_cost = cpm["cost_per_member"].median()
+    st.subheader("Contributions vs. benefits paid")
+    st.caption("The sector's net cash flow -- a widening gap means a maturing scheme")
     fig2 = go.Figure()
-    others = cpm[cpm.ecode != ecode]
     fig2.add_trace(go.Scatter(
-        x=others["cost_per_member"], y=[0] * len(others), mode="markers",
-        marker=dict(color=MUTED, size=8, opacity=0.5), name="Other funds",
-        hovertext=others["local_authority"], hoverinfo="text",
+        x=sector["year"], y=sector["total_contributions"] / 1e3,
+        name="Contributions received", line=dict(color=ACCENT2, width=2.5), mode="lines",
     ))
     fig2.add_trace(go.Scatter(
-        x=[cost_per_member], y=[0], mode="markers",
-        marker=dict(color=ACCENT, size=16, line=dict(color="white", width=2)),
-        name=fund_name, hovertext=[fund_name], hoverinfo="text",
+        x=sector["year"], y=sector["benefits_paid"] / 1e3,
+        name="Benefits paid", line=dict(color=BAD, width=2.5), mode="lines",
+        fill="tonexty", fillcolor=GAP_FILL,
     ))
-    fig2.add_vline(x=median_cost, line=dict(color="#5B6B78", width=1, dash="dot"))
-    fig2.add_annotation(x=median_cost, y=0.35, text=f"Median £{median_cost:,.0f}", showarrow=False, font=dict(size=11, color="#5B6B78"))
-    fig2.add_annotation(x=cost_per_member, y=-0.35, text=f"{fund_name} £{cost_per_member:,.0f}", showarrow=False, font=dict(size=11, color=ACCENT))
     fig2.update_layout(
-        height=280, margin=dict(l=10, r=10, t=30, b=10), showlegend=False,
+        height=270, margin=dict(l=0, r=0, t=10, b=0),
         plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(gridcolor=GRID, title="£ per member", zeroline=False),
-        yaxis=dict(visible=False, range=[-1, 1]),
+        xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID, title="£bn"),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.3, x=0),
         font=dict(color="#1C2B3A"),
     )
     st.plotly_chart(fig2, width="stretch")
 
-st.subheader(f"Membership composition, {fund_name}")
-st.caption("Contributing members, pensioners and deferred members")
-fig3 = go.Figure()
-for col, label, color in [
-    ("total_contributing_members", "Contributing", ACCENT),
-    ("total_pensioners", "Pensioners", ACCENT2),
-    ("total_deferred_members", "Deferred", GOOD),
-]:
-    fig3.add_trace(go.Bar(x=hist["year"], y=hist[col], name=label, marker_color=color))
-fig3.update_layout(
-    barmode="stack", height=260, margin=dict(l=0, r=0, t=10, b=0),
-    plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
-    xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID),
-    legend=dict(orientation="h", yanchor="bottom", y=-0.3, x=0),
-    font=dict(color="#1C2B3A"),
-)
-st.plotly_chart(fig3, width="stretch")
+st.write("")
+c3, c4 = st.columns(2)
 
-st.subheader(f"Funds ranked closest to {fund_name} by cost per member, {latest_year}")
-pos = cpm.index[cpm.ecode == ecode][0]
-window = cpm.iloc[max(0, pos - 5):pos + 6].reset_index(drop=True)
-is_selected = window["ecode"] == ecode
-display = pd.DataFrame({
-    "Fund": window["local_authority"],
-    "Members": window["total_members"].map("{:,.0f}".format),
-    "Cost / member": window["cost_per_member"].map("£{:,.0f}".format),
-})
+with c3:
+    st.subheader("Sector membership composition")
+    st.caption("Contributing members, pensioners and deferred members, summed across all funds")
+    fig3 = go.Figure()
+    for col, label, color in [
+        ("total_contributing", "Contributing", ACCENT),
+        ("total_pensioners", "Pensioners", ACCENT2),
+        ("total_deferred", "Deferred", GOOD),
+    ]:
+        fig3.add_trace(go.Scatter(
+            x=sector["year"], y=sector[col] / 1e6, name=label, mode="lines",
+            stackgroup="one", line=dict(width=0.5, color=color),
+        ))
+    fig3.update_layout(
+        height=270, margin=dict(l=0, r=0, t=10, b=0),
+        plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID, title="Members (m)"),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.3, x=0),
+        font=dict(color="#1C2B3A"),
+    )
+    st.plotly_chart(fig3, width="stretch")
 
-styled = display.style.apply(
-    lambda row: ["background-color: #F0E2C8" if is_selected.iloc[row.name] else "" for _ in row],
-    axis=1,
-)
-st.dataframe(styled, hide_index=True, width="stretch")
+with c4:
+    st.subheader("Does fund size buy efficiency?")
+    st.caption(f"Admin cost per member vs. fund size, {latest_year} · correlation {corr:+.2f} (weak)")
+    fig4 = go.Figure()
+    is_hl = cpm["local_authority"] == highlight
+    fig4.add_trace(go.Scatter(
+        x=cpm.loc[~is_hl, "total_members"], y=cpm.loc[~is_hl, "cost_per_member"],
+        mode="markers", marker=dict(color=MUTED, size=8, opacity=0.5),
+        hovertext=cpm.loc[~is_hl, "local_authority"], hoverinfo="text", name="Funds",
+    ))
+    if highlight != "None" and is_hl.any():
+        fig4.add_trace(go.Scatter(
+            x=cpm.loc[is_hl, "total_members"], y=cpm.loc[is_hl, "cost_per_member"],
+            mode="markers", marker=dict(color=ACCENT, size=15, line=dict(color="white", width=2)),
+            hovertext=cpm.loc[is_hl, "local_authority"], hoverinfo="text", name=highlight,
+        ))
+    fig4.update_layout(
+        height=270, margin=dict(l=0, r=0, t=10, b=0), showlegend=False,
+        plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(gridcolor=GRID, title="Members (log scale)", type="log"),
+        yaxis=dict(gridcolor=GRID, title="£ per member"),
+        font=dict(color="#1C2B3A"),
+    )
+    st.plotly_chart(fig4, width="stretch")
 
-st.caption("Source: gov.uk LGPS SF3 returns, 2016-17 to 2024-25")
+st.write("")
+t1, t2 = st.columns(2)
+with t1:
+    st.subheader("Lowest cost per member")
+    cheap = cpm.head(5)[["local_authority", "total_members", "cost_per_member"]].copy()
+    cheap.columns = ["Fund", "Members", "Cost / member"]
+    cheap["Members"] = cheap["Members"].map("{:,.0f}".format)
+    cheap["Cost / member"] = cheap["Cost / member"].map("£{:,.0f}".format)
+    st.dataframe(cheap, hide_index=True, width="stretch")
+with t2:
+    st.subheader("Highest cost per member")
+    pricey = cpm.tail(5)[["local_authority", "total_members", "cost_per_member"]].iloc[::-1].copy()
+    pricey.columns = ["Fund", "Members", "Cost / member"]
+    pricey["Members"] = pricey["Members"].map("{:,.0f}".format)
+    pricey["Cost / member"] = pricey["Cost / member"].map("£{:,.0f}".format)
+    st.dataframe(pricey, hide_index=True, width="stretch")
+
+st.caption(f"The 10 largest funds hold {top10_share:.0f}% of total sector assets ({latest_year}) · source: gov.uk LGPS SF3 returns, {first.year} to {latest_year}")
 
 st.write("")
 st.markdown('<div class="ai-box">', unsafe_allow_html=True)
@@ -230,10 +270,14 @@ st.markdown("**Ask a question**")
 st.caption("Placeholder -- answers a few example questions from the real data. The live Claude-based version isn't wired up here yet (see scripts/ask.py).")
 
 EXAMPLES = {
-    f"What was {fund_name}'s total expenditure in {latest_year}?": f"£{latest['total_expenditure']:,.0f}k",
-    f"How many members did {fund_name} have in {latest_year}?": f"{latest['total_members']:,.0f}",
-    f"What was {fund_name}'s fund value at the end of {latest_year}?": f"£{latest['market_value_end_of_year']:,.0f}k",
+    f"What was total sector investment income in {latest_year}?": f"£{latest.total_investment_income:,.0f}k",
+    f"How many pensioners were there across England & Wales in {latest_year}?": f"{latest.total_pensioners:,.0f}",
+    f"By how much did total sector assets grow between {first.year} and {latest_year}?": f"{assets_growth:.0f}%",
 }
+if highlight != "None":
+    row = load_cost_scale(latest_year)
+    row = row.loc[row.local_authority == highlight].iloc[0]
+    EXAMPLES[f"How many members did {highlight} have in {latest_year}?"] = f"{row.total_members:,.0f}"
 
 question = st.selectbox("Example question", list(EXAMPLES.keys()))
 if st.button("Ask"):
