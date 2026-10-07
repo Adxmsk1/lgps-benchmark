@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-DB_PATH = Path(__file__).resolve().parent.parent / "dev.duckdb"
+DATA_PATH = Path(__file__).resolve().parent / "data.csv"
 
 ACCENT = "#A3661F"
 ACCENT2 = "#2F5C55"
@@ -34,7 +34,9 @@ st.markdown("""
 
 @st.cache_resource
 def get_con():
-    return duckdb.connect(str(DB_PATH), read_only=True)
+    con = duckdb.connect(":memory:")
+    con.sql(f"create table fct_lgps_fund_year as select * from read_csv_auto('{DATA_PATH}')")
+    return con
 
 
 @st.cache_data

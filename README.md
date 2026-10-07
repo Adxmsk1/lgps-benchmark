@@ -84,6 +84,11 @@ four descriptive questions:
 A fund can still be highlighted on the scale chart for anyone who wants to
 find their own council, but it's an optional overlay, not the default view.
 
+It reads `dashboard/data.csv`, a small (174KB) export of `fct_lgps_fund_year`
+checked into the repo for this purpose, so it runs standalone: no need to
+build the full pipeline first, and it deploys as-is on Streamlit Community
+Cloud straight from GitHub.
+
 ## Setup
 
 ```bash
@@ -93,6 +98,16 @@ uv pip install -r requirements.txt
 ```
 
 ## Usage
+
+Run the dashboard on its own (no setup beyond `pip install`, it reads the
+bundled `dashboard/data.csv`):
+
+```bash
+source .venv/bin/activate
+streamlit run dashboard/app.py
+```
+
+Rebuild the full pipeline from source:
 
 ```bash
 source .venv/bin/activate
@@ -114,8 +129,13 @@ duckdb.connect('dev.duckdb').sql('''
 "
 ```
 
-Run the dashboard:
+Refresh the dashboard's bundled data after a pipeline rebuild:
 
 ```bash
-streamlit run dashboard/app.py
+python3 -c "
+import duckdb
+duckdb.connect('dev.duckdb').sql('''
+    COPY fct_lgps_fund_year TO 'dashboard/data.csv' (HEADER, DELIMITER ',')
+''')
+"
 ```
