@@ -60,10 +60,8 @@ data/raw/*.xlsx  --[scripts/ingest.py]-->  data/processed/lgps_sf3_tidy.parquet 
 
 ## The dashboard
 
-A Python/Streamlit dashboard, built as a second artifact alongside the
-Power BI one: Power BI demonstrates the tool used day to day in local
-government and finance, while this one can be published as a public,
-standalone web page.
+A Python/Streamlit dashboard that demonstrates the tool that could be used day to day in local
+government and finance.
 
 ![Sector-wide view](dashboard/screenshot-sector.png)
 
