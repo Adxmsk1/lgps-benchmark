@@ -1,0 +1,402 @@
+[
+  {
+    "id": 1,
+    "question": "What was Redbridge's total expenditure in 2022-23?",
+    "expected_answer": 49072.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_expenditure from fct_lgps_fund_year where ecode = 'E5046' and year = '2022-23'"
+  },
+  {
+    "id": 2,
+    "question": "What was Bedfordshire's total expenditure in 2024-25?",
+    "expected_answer": 192628.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_expenditure from fct_lgps_fund_year where ecode = 'E0221' and year = '2024-25'"
+  },
+  {
+    "id": 3,
+    "question": "What was Ealing's total expenditure in 2022-23?",
+    "expected_answer": 63614.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_expenditure from fct_lgps_fund_year where ecode = 'E5036' and year = '2022-23'"
+  },
+  {
+    "id": 4,
+    "question": "How much did Buckinghamshire pay out in pension benefits in 2022-23?",
+    "expected_answer": 109826.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select pension_benefits_paid from fct_lgps_fund_year where ecode = 'E0421' and year = '2022-23'"
+  },
+  {
+    "id": 5,
+    "question": "How much did Merseyside Pension Fund pay out in pension benefits in 2019-20?",
+    "expected_answer": 278801.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select pension_benefits_paid from fct_lgps_fund_year where ecode = 'E6902' and year = '2019-20'"
+  },
+  {
+    "id": 6,
+    "question": "How much did Havering pay out in pension benefits in 2019-20?",
+    "expected_answer": 32387.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select pension_benefits_paid from fct_lgps_fund_year where ecode = 'E5040' and year = '2019-20'"
+  },
+  {
+    "id": 7,
+    "question": "What were North Yorkshire's total employee contributions in 2018-19?",
+    "expected_answer": 28295.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select contributions_employees from fct_lgps_fund_year where ecode = 'E2721' and year = '2018-19'"
+  },
+  {
+    "id": 8,
+    "question": "What were East Riding of Yorkshire UA's total employee contributions in 2021-22?",
+    "expected_answer": 41128.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select contributions_employees from fct_lgps_fund_year where ecode = 'E2001' and year = '2021-22'"
+  },
+  {
+    "id": 9,
+    "question": "What were Dorset's total employee contributions in 2020-21?",
+    "expected_answer": 29102.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select contributions_employees from fct_lgps_fund_year where ecode = 'E1221' and year = '2020-21'"
+  },
+  {
+    "id": 10,
+    "question": "What were Nottinghamshire's total employer contributions in 2024-25?",
+    "expected_answer": 216451.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select contributions_employers from fct_lgps_fund_year where ecode = 'E3021' and year = '2024-25'"
+  },
+  {
+    "id": 11,
+    "question": "What were West Yorkshire Superannuation Fund's total employer contributions in 2022-23?",
+    "expected_answer": 381697.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select contributions_employers from fct_lgps_fund_year where ecode = 'E6906' and year = '2022-23'"
+  },
+  {
+    "id": 12,
+    "question": "What were Hampshire's total employer contributions in 2016-17?",
+    "expected_answer": 196545.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select contributions_employers from fct_lgps_fund_year where ecode = 'E1721' and year = '2016-17'"
+  },
+  {
+    "id": 13,
+    "question": "What was Camden's investment income in 2022-23?",
+    "expected_answer": 24038.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select investment_income from fct_lgps_fund_year where ecode = 'E5011' and year = '2022-23'"
+  },
+  {
+    "id": 14,
+    "question": "What was Essex's investment income in 2017-18?",
+    "expected_answer": 96614.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select investment_income from fct_lgps_fund_year where ecode = 'E1521' and year = '2017-18'"
+  },
+  {
+    "id": 15,
+    "question": "What was Swansea UA's investment income in 2023-24?",
+    "expected_answer": 32051.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select investment_income from fct_lgps_fund_year where ecode = 'W7702' and year = '2023-24'"
+  },
+  {
+    "id": 16,
+    "question": "What was Torfaen UA's total income in 2024-25?",
+    "expected_answer": 261976.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_income from fct_lgps_fund_year where ecode = 'W7204' and year = '2024-25'"
+  },
+  {
+    "id": 17,
+    "question": "What was Hampshire's total income in 2020-21?",
+    "expected_answer": 613046.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_income from fct_lgps_fund_year where ecode = 'E1721' and year = '2020-21'"
+  },
+  {
+    "id": 18,
+    "question": "What was Tower Hamlets's total income in 2019-20?",
+    "expected_answer": 76856.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_income from fct_lgps_fund_year where ecode = 'E5020' and year = '2019-20'"
+  },
+  {
+    "id": 19,
+    "question": "How many contributing members did Wiltshire have in 2018-19?",
+    "expected_answer": 22505.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_contributing_members from fct_lgps_fund_year where ecode = 'E3921' and year = '2018-19'"
+  },
+  {
+    "id": 20,
+    "question": "How many contributing members did Lincolnshire have in 2022-23?",
+    "expected_answer": 26601.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_contributing_members from fct_lgps_fund_year where ecode = 'E2520' and year = '2022-23'"
+  },
+  {
+    "id": 21,
+    "question": "How many contributing members did Hounslow have in 2019-20?",
+    "expected_answer": 6639.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_contributing_members from fct_lgps_fund_year where ecode = 'E5042' and year = '2019-20'"
+  },
+  {
+    "id": 22,
+    "question": "How many pensioners did Powys UA have in 2018-19?",
+    "expected_answer": 4683.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_pensioners from fct_lgps_fund_year where ecode = 'W7501' and year = '2018-19'"
+  },
+  {
+    "id": 23,
+    "question": "How many pensioners did Sutton have in 2021-22?",
+    "expected_answer": 4424.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_pensioners from fct_lgps_fund_year where ecode = 'E5048' and year = '2021-22'"
+  },
+  {
+    "id": 24,
+    "question": "How many pensioners did Westminster have in 2016-17?",
+    "expected_answer": 5706.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_pensioners from fct_lgps_fund_year where ecode = 'E5022' and year = '2016-17'"
+  },
+  {
+    "id": 25,
+    "question": "How many employers participated in Newham in 2019-20?",
+    "expected_answer": 55.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_employers from fct_lgps_fund_year where ecode = 'E5045' and year = '2019-20'"
+  },
+  {
+    "id": 26,
+    "question": "How many employers participated in Dorset in 2020-21?",
+    "expected_answer": 319.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_employers from fct_lgps_fund_year where ecode = 'E1221' and year = '2020-21'"
+  },
+  {
+    "id": 27,
+    "question": "How many employers participated in Barking & Dagenham in 2023-24?",
+    "expected_answer": 35.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_employers from fct_lgps_fund_year where ecode = 'E5030' and year = '2023-24'"
+  },
+  {
+    "id": 28,
+    "question": "What was the total membership of Islington in 2020-21?",
+    "expected_answer": 20981.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_members from fct_lgps_fund_year where ecode = 'E5015' and year = '2020-21'"
+  },
+  {
+    "id": 29,
+    "question": "What was the total membership of Hampshire in 2022-23?",
+    "expected_answer": 201764.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_members from fct_lgps_fund_year where ecode = 'E1721' and year = '2022-23'"
+  },
+  {
+    "id": 30,
+    "question": "What was the total membership of Barking & Dagenham in 2017-18?",
+    "expected_answer": 17785.0,
+    "unit": "count",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select total_members from fct_lgps_fund_year where ecode = 'E5030' and year = '2017-18'"
+  },
+  {
+    "id": 31,
+    "question": "What was the market value of Gloucestershire's fund at the end of 2021-22?",
+    "expected_answer": 3110843.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year from fct_lgps_fund_year where ecode = 'E1620' and year = '2021-22'"
+  },
+  {
+    "id": 32,
+    "question": "What was the market value of Cardiff UA's fund at the end of 2020-21?",
+    "expected_answer": 2510075.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year from fct_lgps_fund_year where ecode = 'W7601' and year = '2020-21'"
+  },
+  {
+    "id": 33,
+    "question": "What was the market value of Worcestershire's fund at the end of 2021-22?",
+    "expected_answer": 3543400.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year from fct_lgps_fund_year where ecode = 'E1821' and year = '2021-22'"
+  },
+  {
+    "id": 34,
+    "question": "What were Warwickshire's administration and management costs in 2022-23?",
+    "expected_answer": 21000.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select admin_and_mgmt_costs from fct_lgps_fund_year where ecode = 'E3720' and year = '2022-23'"
+  },
+  {
+    "id": 35,
+    "question": "What were West Sussex's administration and management costs in 2018-19?",
+    "expected_answer": 17835.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select admin_and_mgmt_costs from fct_lgps_fund_year where ecode = 'E3820' and year = '2018-19'"
+  },
+  {
+    "id": 36,
+    "question": "What were Tyne and Wear Superannuation Fund's administration and management costs in 2021-22?",
+    "expected_answer": 86068.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select admin_and_mgmt_costs from fct_lgps_fund_year where ecode = 'E6904' and year = '2021-22'"
+  },
+  {
+    "id": 37,
+    "question": "By how much did the market value of Cambridgeshire's fund grow during 2019-20 (end of year value minus start of year value)?",
+    "expected_answer": -194925.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year - market_value_start_of_year from fct_lgps_fund_year where ecode = 'E0521' and year = '2019-20'"
+  },
+  {
+    "id": 38,
+    "question": "By how much did the market value of South Yorkshire Pensions Fund's fund grow during 2016-17 (end of year value minus start of year value)?",
+    "expected_answer": 1395423.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year - market_value_start_of_year from fct_lgps_fund_year where ecode = 'E6903' and year = '2016-17'"
+  },
+  {
+    "id": 39,
+    "question": "By how much did the market value of Westminster's fund grow during 2019-20 (end of year value minus start of year value)?",
+    "expected_answer": -88620.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year - market_value_start_of_year from fct_lgps_fund_year where ecode = 'E5022' and year = '2019-20'"
+  },
+  {
+    "id": 40,
+    "question": "By how much did the market value of Dorset UA's fund grow during 2021-22 (end of year value minus start of year value)?",
+    "expected_answer": 352810.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year - market_value_start_of_year from fct_lgps_fund_year where ecode = 'E1221' and year = '2021-22'"
+  },
+  {
+    "id": 41,
+    "question": "By how much did the market value of Ealing's fund grow during 2022-23 (end of year value minus start of year value)?",
+    "expected_answer": -73985.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year - market_value_start_of_year from fct_lgps_fund_year where ecode = 'E5036' and year = '2022-23'"
+  },
+  {
+    "id": 42,
+    "question": "By how much did the market value of Southwark's fund grow during 2022-23 (end of year value minus start of year value)?",
+    "expected_answer": -112553.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year - market_value_start_of_year from fct_lgps_fund_year where ecode = 'E5019' and year = '2022-23'"
+  },
+  {
+    "id": 43,
+    "question": "By how much did the market value of Northamptonshire's fund grow during 2017-18 (end of year value minus start of year value)?",
+    "expected_answer": 64687.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year - market_value_start_of_year from fct_lgps_fund_year where ecode = 'E2820' and year = '2017-18'"
+  },
+  {
+    "id": 44,
+    "question": "By how much did the market value of Flintshire UA's fund grow during 2021-22 (end of year value minus start of year value)?",
+    "expected_answer": 263284.0,
+    "unit": "GBP thousands",
+    "tolerance": "relative:0.01",
+    "ground_truth_sql": "select market_value_end_of_year - market_value_start_of_year from fct_lgps_fund_year where ecode = 'W7002' and year = '2021-22'"
+  },
+  {
+    "id": 45,
+    "question": "Which fund had the highest total income in 2017-18?",
+    "expected_answer": "Tameside",
+    "unit": "fund name",
+    "tolerance": "exact_string",
+    "ground_truth_sql": "select local_authority from fct_lgps_fund_year where fund_type = 'fund' and year = '2017-18' order by total_income desc limit 1"
+  },
+  {
+    "id": 46,
+    "question": "Which fund had the highest total income in 2016-17?",
+    "expected_answer": "Tameside",
+    "unit": "fund name",
+    "tolerance": "exact_string",
+    "ground_truth_sql": "select local_authority from fct_lgps_fund_year where fund_type = 'fund' and year = '2016-17' order by total_income desc limit 1"
+  },
+  {
+    "id": 47,
+    "question": "Which fund had the highest total income in 2021-22?",
+    "expected_answer": "Tameside",
+    "unit": "fund name",
+    "tolerance": "exact_string",
+    "ground_truth_sql": "select local_authority from fct_lgps_fund_year where fund_type = 'fund' and year = '2021-22' order by total_income desc limit 1"
+  },
+  {
+    "id": 48,
+    "question": "Which fund had the highest total income in 2018-19?",
+    "expected_answer": "Tameside",
+    "unit": "fund name",
+    "tolerance": "exact_string",
+    "ground_truth_sql": "select local_authority from fct_lgps_fund_year where fund_type = 'fund' and year = '2018-19' order by total_income desc limit 1"
+  },
+  {
+    "id": 49,
+    "question": "Which fund had the highest total income in 2024-25?",
+    "expected_answer": "Tameside",
+    "unit": "fund name",
+    "tolerance": "exact_string",
+    "ground_truth_sql": "select local_authority from fct_lgps_fund_year where fund_type = 'fund' and year = '2024-25' order by total_income desc limit 1"
+  },
+  {
+    "id": 50,
+    "question": "Which fund had the highest total income in 2020-21?",
+    "expected_answer": "Tameside",
+    "unit": "fund name",
+    "tolerance": "exact_string",
+    "ground_truth_sql": "select local_authority from fct_lgps_fund_year where fund_type = 'fund' and year = '2020-21' order by total_income desc limit 1"
+  }
+]
