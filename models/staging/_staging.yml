@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: stg_sf3__tidy
+    description: >
+      Tidy (ecode, local_authority, year, measure, value) rows from every
+      year's SF3 "Pension funds data table", reconciled from 9 differently
+      laid out spreadsheets by scripts/ingest.py.
+    columns:
+      - name: ecode
+        description: MHCLG fund code, or EW001/E9999/W9999 for aggregate rows.
+        data_tests:
+          - not_null
+      - name: local_authority
+        description: Fund / local authority name as published that year.
+        data_tests:
+          - not_null
+      - name: year
+        description: Financial year, e.g. "2016-17".
+        data_tests:
+          - not_null
+      - name: measure
+        description: Canonical measure code (see scripts/ingest.py).
+        data_tests:
+          - not_null
+      - name: value
+        data_tests:
+          - not_null
+      - name: fund_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["fund", "national_total"]

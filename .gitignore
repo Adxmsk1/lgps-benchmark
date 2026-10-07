@@ -10,6 +10,7 @@ logs/
 .user.yml
 
 data/raw/
+data/processed/
 
 .env
 .DS_Store

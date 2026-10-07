@@ -17,6 +17,7 @@ reads identifier and measure columns relative to that row.
 import re
 from pathlib import Path
 
+import duckdb
 import openpyxl
 import pandas as pd
 
@@ -139,22 +140,27 @@ def extract_exp_inc(wb, year):
     )
 
 
-# Membership and asset-value measures live in "Data2" (2016-17 .. 2022-23),
-# or are split across "Data_Memo_SectionA" (membership) and
-# "Data_Memo_SectionB_to_F" (asset value) from 2023-24 onwards. Both eras are
-# matched by a label substring rather than an exact string, because the
-# wording shifts slightly year to year (e.g. the old sheet repeats "Number
-# of pensioners:retired employees or dependents" per employer group, while
-# the new sheet labels the aggregate column "Total number of pensioners").
-# Where a substring matches more than one column (the old sheet's five
-# per-employer-group columns), the "Total" sub-header one row below breaks
-# the tie.
+# Membership measures live in "Data2" (2016-17 .. 2022-23), or in
+# "Data_Memo_SectionA" from 2023-24 onwards. Both eras break each measure
+# into five columns (one per employer group, plus an aggregate), but
+# disambiguate the aggregate column differently:
+#   - old sheet: all five columns share one literal label (e.g. "Number of
+#     pensioners:retired employees or dependents"); only a "Total" sub-header
+#     one row below marks the aggregate.
+#   - new sheet: each employer-group column has its own label (e.g.
+#     "Pensioners: Employers group 1"), and the aggregate has distinct
+#     wording ("Total number of pensioners") with no sub-header at all.
+# Each entry below is (broad_pattern, total_phrase): total_phrase is tried
+# first since it uniquely identifies the new sheet's aggregate column; if
+# that finds no match (the old sheet's labels don't say "total number of
+# pensioners", just "number of pensioners"), broad_pattern plus the "Total"
+# sub-header resolves the old sheet's aggregate instead.
 MEMBERSHIP_PATTERNS = {
-    "empler_tot": "number of employers",
-    "contmem_tot": "number of contributing members",
-    "pensioner_tot": "number of pensioners",
-    "defmemb_tot": "former members",
-    "totmember_tot": "total number of members",
+    "empler_tot": ("number of employers", "total number of employers"),
+    "contmem_tot": ("number of contributing members", "total number of contributing members"),
+    "pensioner_tot": ("number of pensioners", "total number of pensioners"),
+    "defmemb_tot": ("former members", "total number of former members"),
+    "totmember_tot": ("total number of members", "total number of members"),
 }
 
 
@@ -168,18 +174,34 @@ def find_label_columns(ws, header_row, contains, max_col):
     return cols
 
 
-def resolve_unique_column(ws, header_row, contains, max_col):
-    """A label substring that should match exactly one column, falling back
-    to the 'Total' sub-header (one row below) to break ties."""
-    cols = find_label_columns(ws, header_row, contains, max_col)
-    if len(cols) == 1:
-        return cols[0]
+def find_exact_label_column(ws, header_row, text, max_col):
+    text = text.lower()
+    return [
+        c for c in range(1, max_col + 1)
+        if (get_label(ws, header_row, c) or "").lower() == text
+    ]
+
+
+def resolve_total_column(ws, header_row, broad, total_phrase, max_col):
+    """See MEMBERSHIP_PATTERNS for why two patterns are needed.
+
+    The new-format sheets also have a "total" column for unrelated
+    employer-group breakdowns whose label happens to start with the same
+    words (e.g. "Total number of members were flexible retirement applies"
+    for totmember_tot's "Total number of members") so the first stage
+    requires an exact label match, not just a substring.
+    """
+    total_cols = find_exact_label_column(ws, header_row, total_phrase, max_col)
+    if len(total_cols) == 1:
+        return total_cols[0]
+
+    cols = find_label_columns(ws, header_row, broad, max_col)
     totals = [c for c in cols if (cell_text(ws, header_row + 1, c) or "").lower() == "total"]
     if len(totals) == 1:
         return totals[0]
     raise ValueError(
-        f"Expected exactly one '{contains}' column in {ws.title}, "
-        f"found {len(cols)} (resolved to {len(totals)} via 'Total' sub-header)"
+        f"Could not resolve a unique '{total_phrase}' column in {ws.title} "
+        f"(broad match: {len(cols)}, total sub-header match: {len(totals)})"
     )
 
 
@@ -189,8 +211,8 @@ def extract_by_label(ws, year, id_cols, measure_patterns):
     max_col = ws.max_column
 
     resolved = {
-        code: resolve_unique_column(ws, header_row, pattern, max_col)
-        for code, pattern in measure_patterns.items()
+        code: resolve_total_column(ws, header_row, broad, total_phrase, max_col)
+        for code, (broad, total_phrase) in measure_patterns.items()
     }
 
     records = []
@@ -274,7 +296,11 @@ def main():
           f"{tidy['year'].nunique()} years, {tidy['ecode'].nunique()} fund codes")
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tidy.to_parquet(OUT_PATH, index=False)
+    # Written via DuckDB rather than tidy.to_parquet(): pandas' parquet
+    # writer needs pyarrow, which isn't installed and can't be added with
+    # pip in this uv-managed venv. DuckDB is already a dependency and
+    # writes parquet natively.
+    duckdb.sql(f"COPY tidy TO '{OUT_PATH}' (FORMAT PARQUET)")
     print(f"Wrote {OUT_PATH}")
 
 

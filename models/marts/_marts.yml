@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: fct_lgps_fund_year
+    description: >
+      One row per fund per year with every measure pivoted into its own
+      column (£000s unless noted). This is the table Power BI reads for
+      benchmarking.
+    columns:
+      - name: fund_year_key
+        description: Surrogate key (ecode || '_' || year).
+        data_tests:
+          - unique
+          - not_null
+      - name: ecode
+        data_tests:
+          - not_null
+      - name: year
+        data_tests:
+          - not_null
