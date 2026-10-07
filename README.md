@@ -65,8 +65,11 @@ Power BI one: Power BI demonstrates the tool used day to day in local
 government and finance, while this one can be published as a public,
 standalone web page.
 
+![Sector-wide view](dashboard/screenshot-sector.png)
+
 It opens on a sector-wide view (no single fund drives it), built around
-four descriptive questions:
+four descriptive questions, each with a short readout of what the chart
+actually shows:
 
 - **Total sector assets**: nominal growth over the 9 years, £258.8bn to
   £402.3bn (+55%).
@@ -81,8 +84,13 @@ four descriptive questions:
   against fund size across all 87 funds. The correlation is -0.19: bigger
   funds aren't meaningfully cheaper to run per member.
 
-A fund can still be highlighted on the scale chart for anyone who wants to
-find their own council, but it's an optional overlay, not the default view.
+A year-range slider trims every chart, KPI and readout to the selected
+span, and highlighting a fund goes further than tinting a scatter dot: it
+swaps the assets chart for an indexed fund-vs-sector comparison and adds
+that fund's own numbers (rank, cost per member, cash flow, membership mix)
+into each readout.
+
+![Barnet highlighted against the sector average](dashboard/screenshot-fund.png)
 
 It reads `dashboard/data.csv`, a small (174KB) export of `fct_lgps_fund_year`
 checked into the repo for this purpose, so it runs standalone: no need to
