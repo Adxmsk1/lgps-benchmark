@@ -28,8 +28,16 @@ st.markdown("""
 .flag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;}
 .flag-bad{background:#F3E1D9;color:#9A3B28;}
 .flag-good{background:#E3EDE1;color:#3F6E46;}
+.insight{background:#FBF8F1;border:1px solid #E3DCCB;border-left:3px solid #A3661F;
+  border-radius:0 8px 8px 0;padding:10px 16px;margin:8px 0 4px;font-size:13.5px;
+  line-height:1.55;color:#1C2B3A;}
+.insight b{color:#8A5518;}
 </style>
 """, unsafe_allow_html=True)
+
+
+def insight(text):
+    st.markdown(f'<div class="insight"><b>Reading this:</b> {text}</div>', unsafe_allow_html=True)
 
 
 @st.cache_resource
@@ -110,6 +118,12 @@ assets_growth = (latest.total_assets / first.total_assets - 1) * 100
 members_growth = (latest.total_members / first.total_members - 1) * 100
 net_flow = latest.total_contributions - latest.benefits_paid
 
+sector["assets_pct_change"] = sector["total_assets"].pct_change() * 100
+worst_year = sector.loc[sector["assets_pct_change"].idxmin()]
+best_year = sector.loc[sector["assets_pct_change"].idxmax()]
+pensioner_growth = (latest.total_pensioners / first.total_pensioners - 1) * 100
+contributing_growth = (latest.total_contributing / first.total_contributing - 1) * 100
+
 st.title("LGPS fund benchmarking")
 st.caption(f"{int(latest.n_funds)} England & Wales pension funds, {first.year} to {latest_year} · source: gov.uk SF3 returns")
 
@@ -158,6 +172,13 @@ with c1:
         font=dict(color="#1C2B3A"),
     )
     st.plotly_chart(fig, width="stretch")
+    insight(
+        f"Growth isn't smooth. Assets fell {abs(worst_year.assets_pct_change):.0f}% in "
+        f"{worst_year.year}, the valuation date that landed right in the COVID market "
+        f"drawdown, then jumped {best_year.assets_pct_change:.0f}% the following year as "
+        f"markets recovered. LGPS funds hold meaningful bond and equity allocations, so "
+        f"these are valuation swings, not sudden changes in membership or contributions."
+    )
 
 with c2:
     st.subheader("Contributions vs. benefits paid")
@@ -180,6 +201,14 @@ with c2:
         font=dict(color="#1C2B3A"),
     )
     st.plotly_chart(fig2, width="stretch")
+    insight(
+        f"Running a net cash outflow doesn't mean a fund is underfunded, investment "
+        f"income and asset sales can cover the gap, and LGPS funding levels are judged "
+        f"at triennial valuation, not on this chart. What it does mean is a rising "
+        f"reliance on investment returns rather than contributions to pay pensions, "
+        f"which raises the bar for those returns and pushes funds toward holding more "
+        f"assets that can be sold quickly when cash is needed."
+    )
 
 st.write("")
 c3, c4 = st.columns(2)
@@ -205,6 +234,14 @@ with c3:
         font=dict(color="#1C2B3A"),
     )
     st.plotly_chart(fig3, width="stretch")
+    insight(
+        f"Pensioners grew {pensioner_growth:.0f}% over the period against {contributing_growth:.0f}% "
+        f"for contributing members: the scheme is ageing. Fewer active members are paying "
+        f"in relative to the number now drawing a pension, which is the membership-side "
+        f"mirror of the widening cash-flow gap on the left, and the reason behind the "
+        f"sector's longer-term shift toward income-generating and liability-matching "
+        f"assets over growth-seeking ones."
+    )
 
 with c4:
     st.subheader("Does fund size buy efficiency?")
@@ -230,6 +267,14 @@ with c4:
         font=dict(color="#1C2B3A"),
     )
     st.plotly_chart(fig4, width="stretch")
+    insight(
+        f"This is administration cost specifically, running payroll, record-keeping, "
+        f"member queries, not investment management, where scale economies are better "
+        f"documented. That distinction is why England and Wales pooled LGPS investment "
+        f"management into vehicles like Border to Coast and Brunel rather than merging "
+        f"the funds themselves: it captures fee savings on the investment side without "
+        f"forcing through disruptive mergers of the smaller administering authorities."
+    )
 
 st.write("")
 t1, t2 = st.columns(2)
