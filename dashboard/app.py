@@ -89,6 +89,14 @@ def load_cost_scale(year: str) -> pd.DataFrame:
 
 
 @st.cache_data
+def load_fund_history(ecode: str) -> pd.DataFrame:
+    return get_con().execute("""
+        select year, market_value_end_of_year
+        from fct_lgps_fund_year where ecode = ? order by year
+    """, [ecode]).df()
+
+
+@st.cache_data
 def load_concentration(year: str) -> float:
     con = get_con()
     top10 = con.execute("""
@@ -105,39 +113,52 @@ def load_concentration(year: str) -> float:
     return top10 / total * 100
 
 
-sector = load_sector_by_year()
+sector_all = load_sector_by_year()
 funds = load_fund_list()
-first, latest = sector.iloc[0], sector.iloc[-1]
-latest_year = latest["year"]
+all_years = sector_all["year"].tolist()
 
-cpm = load_cost_scale(latest_year)
+st.title("LGPS fund benchmarking")
+st.caption(f"{int(sector_all.iloc[-1].n_funds)} England & Wales pension funds, {all_years[0]} to {all_years[-1]} · source: gov.uk SF3 returns")
+
+rng_col, hl_col = st.columns([3, 1])
+with rng_col:
+    year_range = st.select_slider("Year range", options=all_years, value=(all_years[0], all_years[-1]))
+with hl_col:
+    highlight = st.selectbox("Highlight a fund (optional)", ["None"] + list(funds.local_authority))
+
+start_i, end_i = all_years.index(year_range[0]), all_years.index(year_range[1])
+sector = sector_all.iloc[start_i:end_i + 1].reset_index(drop=True)
+first, latest = sector.iloc[0], sector.iloc[-1]
+snapshot_year = latest["year"]
+
+cpm = load_cost_scale(snapshot_year)
 corr = cpm[["total_members", "cost_per_member"]].corr().iloc[0, 1]
-top10_share = load_concentration(latest_year)
+top10_share = load_concentration(snapshot_year)
 
 assets_growth = (latest.total_assets / first.total_assets - 1) * 100
 members_growth = (latest.total_members / first.total_members - 1) * 100
 net_flow = latest.total_contributions - latest.benefits_paid
 
 sector["assets_pct_change"] = sector["total_assets"].pct_change() * 100
-worst_year = sector.loc[sector["assets_pct_change"].idxmin()]
-best_year = sector.loc[sector["assets_pct_change"].idxmax()]
 pensioner_growth = (latest.total_pensioners / first.total_pensioners - 1) * 100
 contributing_growth = (latest.total_contributing / first.total_contributing - 1) * 100
 
-st.title("LGPS fund benchmarking")
-st.caption(f"{int(latest.n_funds)} England & Wales pension funds, {first.year} to {latest_year} · source: gov.uk SF3 returns")
-
-hl_l, hl_r = st.columns([3, 1])
-with hl_r:
-    highlight = st.selectbox("Highlight a fund (optional)", ["None"] + list(funds.local_authority))
+fund_growth = fund_hist = None
+if highlight != "None":
+    ecode = funds.loc[funds.local_authority == highlight, "ecode"].iloc[0]
+    fund_hist_all = load_fund_history(ecode)
+    fund_hist = fund_hist_all[fund_hist_all.year.isin(sector["year"])].reset_index(drop=True)
+    if len(fund_hist) >= 2 and fund_hist.iloc[0].market_value_end_of_year:
+        fund_growth = (fund_hist.iloc[-1].market_value_end_of_year
+                        / fund_hist.iloc[0].market_value_end_of_year - 1) * 100
 
 k1, k2, k3, k4 = st.columns(4)
 with k1:
-    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Total sector assets, {latest_year}</p>
+    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Total sector assets, {snapshot_year}</p>
         <p class="kpi-value">£{latest.total_assets/1e6:,.0f}bn</p>
         <p class="kpi-sub" style="color:{GOOD};">↑ {assets_growth:.0f}% since {first.year}</p></div>""", unsafe_allow_html=True)
 with k2:
-    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Total members, {latest_year}</p>
+    st.markdown(f"""<div class="kpi-card"><p class="kpi-label">Total members, {snapshot_year}</p>
         <p class="kpi-value">{latest.total_members/1e6:,.2f}m</p>
         <p class="kpi-sub" style="color:{GOOD};">↑ {members_growth:.0f}% since {first.year}</p></div>""", unsafe_allow_html=True)
 with k3:
@@ -156,29 +177,70 @@ st.write("")
 c1, c2 = st.columns(2)
 
 with c1:
-    st.subheader("Total sector assets")
-    st.caption("Sum of fund value at year end, all funds, £bn nominal")
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=sector["year"], y=sector["total_assets"] / 1e6,
-        line=dict(color=ACCENT, width=2.5), fill="tozeroy",
-        fillcolor="rgba(163,102,31,0.08)", mode="lines+markers",
-        marker=dict(size=5),
-    ))
-    fig.update_layout(
-        height=270, margin=dict(l=0, r=0, t=10, b=0), showlegend=False,
-        plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID, title="£bn", rangemode="tozero"),
-        font=dict(color="#1C2B3A"),
-    )
-    st.plotly_chart(fig, width="stretch")
-    insight(
-        f"Growth isn't smooth. Assets fell {abs(worst_year.assets_pct_change):.0f}% in "
-        f"{worst_year.year}, the valuation date that landed right in the COVID market "
-        f"drawdown, then jumped {best_year.assets_pct_change:.0f}% the following year as "
-        f"markets recovered. LGPS funds hold meaningful bond and equity allocations, so "
-        f"these are valuation swings, not sudden changes in membership or contributions."
-    )
+    if highlight == "None":
+        st.subheader("Total sector assets")
+        st.caption("Sum of fund value at year end, all funds, £bn nominal")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=sector["year"], y=sector["total_assets"] / 1e6,
+            line=dict(color=ACCENT, width=2.5), fill="tozeroy",
+            fillcolor="rgba(163,102,31,0.08)", mode="lines+markers",
+            marker=dict(size=5),
+        ))
+        fig.update_layout(
+            height=270, margin=dict(l=0, r=0, t=10, b=0), showlegend=False,
+            plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID, title="£bn", rangemode="tozero"),
+            font=dict(color="#1C2B3A"),
+        )
+        st.plotly_chart(fig, width="stretch")
+        if len(sector) >= 3:
+            worst_year = sector.loc[sector["assets_pct_change"].idxmin()]
+            best_year = sector.loc[sector["assets_pct_change"].idxmax()]
+            insight(
+                f"Growth isn't smooth. Assets fell {abs(worst_year.assets_pct_change):.0f}% in "
+                f"{worst_year.year}, the valuation date that landed right in the COVID market "
+                f"drawdown, then jumped {best_year.assets_pct_change:.0f}% the following year as "
+                f"markets recovered. LGPS funds hold meaningful bond and equity allocations, so "
+                f"these are valuation swings, not sudden changes in membership or contributions."
+            )
+        else:
+            insight(
+                f"Total sector assets grew {assets_growth:.0f}% from {first.year} to "
+                f"{snapshot_year}. Widen the year range above to see how uneven that "
+                f"growth has actually been year to year."
+            )
+    else:
+        st.subheader(f"{highlight} vs. the sector average")
+        st.caption(f"Fund value, indexed to {first.year} = 100, so size doesn't distort the comparison")
+        if fund_hist is not None and len(fund_hist) >= 2 and fund_growth is not None:
+            base = fund_hist.iloc[0].market_value_end_of_year
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=fund_hist["year"], y=fund_hist["market_value_end_of_year"] / base * 100,
+                name=highlight, line=dict(color=ACCENT, width=2.5), mode="lines",
+            ))
+            fig.add_trace(go.Scatter(
+                x=sector["year"], y=sector["total_assets"] / first.total_assets * 100,
+                name="Sector average", line=dict(color=ACCENT2, width=2, dash="dash"), mode="lines",
+            ))
+            fig.update_layout(
+                height=270, margin=dict(l=0, r=0, t=10, b=0),
+                plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
+                xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID, title="Index"),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.3, x=0),
+                font=dict(color="#1C2B3A"),
+            )
+            st.plotly_chart(fig, width="stretch")
+            ahead_behind = "ahead of" if fund_growth > assets_growth else "behind"
+            insight(
+                f"{highlight}'s fund value grew {fund_growth:.0f}% over this period against "
+                f"{assets_growth:.0f}% for the sector average: {ahead_behind} the broader "
+                f"trend. Indexing both to the same base strips out the effect of fund size, "
+                f"so this compares growth rates, not the underlying asset values."
+            )
+        else:
+            st.info(f"No data for {highlight} across this year range.")
 
 with c2:
     st.subheader("Contributions vs. benefits paid")
@@ -245,7 +307,7 @@ with c3:
 
 with c4:
     st.subheader("Does fund size buy efficiency?")
-    st.caption(f"Admin cost per member vs. fund size, {latest_year} · correlation {corr:+.2f} (weak)")
+    st.caption(f"Admin cost per member vs. fund size, {snapshot_year} · correlation {corr:+.2f} (weak)")
     fig4 = go.Figure()
     is_hl = cpm["local_authority"] == highlight
     fig4.add_trace(go.Scatter(
@@ -293,4 +355,4 @@ with t2:
     pricey["Cost / member"] = pricey["Cost / member"].map("£{:,.0f}".format)
     st.dataframe(pricey, hide_index=True, width="stretch")
 
-st.caption(f"The 10 largest funds hold {top10_share:.0f}% of total sector assets ({latest_year}) · source: gov.uk LGPS SF3 returns, {first.year} to {latest_year}")
+st.caption(f"The 10 largest funds hold {top10_share:.0f}% of total sector assets ({snapshot_year}) · source: gov.uk LGPS SF3 returns, {first.year} to {snapshot_year}")
