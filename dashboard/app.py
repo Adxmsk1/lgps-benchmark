@@ -32,6 +32,7 @@ st.markdown("""
   border-radius:0 8px 8px 0;padding:10px 16px;margin:8px 0 4px;font-size:13.5px;
   line-height:1.55;color:#1C2B3A;}
 .insight b{color:#8A5518;}
+.intro{font-size:15px; line-height:1.6; color:#3A3D40; max-width:900px; margin:4px 0 4px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -62,12 +63,17 @@ def load_sector_by_year() -> pd.DataFrame:
         select
             year,
             count(*) as n_funds,
+            sum(market_value_start_of_year) as assets_start,
             sum(market_value_end_of_year) as total_assets,
             sum(total_members) as total_members,
             sum(total_contributing_members) as total_contributing,
             sum(total_pensioners) as total_pensioners,
             sum(total_deferred_members) as total_deferred,
+            sum(contributions_employees) as contrib_employee,
+            sum(contributions_employers) as contrib_employer,
             sum(contributions_employees + contributions_employers) as total_contributions,
+            sum(total_income) as total_income,
+            sum(total_expenditure) as total_expenditure,
             sum(pension_benefits_paid + lump_sums_retirement + lump_sums_optional
                 + lump_sums_death + other_benefits) as benefits_paid
         from fct_lgps_fund_year
@@ -103,6 +109,23 @@ def load_fund_history(ecode: str) -> pd.DataFrame:
 
 
 @st.cache_data
+def load_growth_dispersion(year_start: str, year_end: str) -> pd.DataFrame:
+    return get_con().execute("""
+        with a as (
+            select ecode, local_authority, market_value_end_of_year as v0
+            from fct_lgps_fund_year where fund_type = 'fund' and year = ?
+        ), b as (
+            select ecode, market_value_end_of_year as v1
+            from fct_lgps_fund_year where fund_type = 'fund' and year = ?
+        )
+        select a.local_authority, (b.v1 / a.v0 - 1) * 100 as growth
+        from a join b using (ecode)
+        where a.v0 > 0
+        order by growth
+    """, [year_start, year_end]).df()
+
+
+@st.cache_data
 def load_concentration(year: str) -> float:
     con = get_con()
     top10 = con.execute("""
@@ -125,6 +148,19 @@ all_years = sector_all["year"].tolist()
 
 st.title("LGPS fund benchmarking")
 st.caption(f"{int(sector_all.iloc[-1].n_funds)} England & Wales pension funds, {all_years[0]} to {all_years[-1]} · source: gov.uk SF3 returns")
+st.markdown(
+    """<div class="intro">The Local Government Pension Scheme is the pension for everyone who
+    works for a council, not just people in the town hall, but school support staff, social
+    workers, librarians, binmen. It isn't one fund: it's 87 of them across England and Wales,
+    each run by its own local authority, each investing and managing its own pot independently.
+    Pulled together, nine years of their own annual returns tell a story none of them show on
+    their own: growth that looks steady from a distance but isn't underneath, a scheme that's
+    quietly tipped from taking in more than it pays out to the opposite, and surprisingly little
+    evidence that being bigger makes a fund any cheaper to run. Further down, the same numbers
+    are used to work out each year's actual investment performance and to show exactly when,
+    and why, employer contributions spike.</div>""",
+    unsafe_allow_html=True,
+)
 
 rng_col, hl_col = st.columns([3, 1])
 with rng_col:
@@ -149,6 +185,19 @@ net_flow_first = first.total_contributions - first.benefits_paid
 sector["assets_pct_change"] = sector["total_assets"].pct_change() * 100
 pensioner_growth = (latest.total_pensioners / first.total_pensioners - 1) * 100
 contributing_growth = (latest.total_contributing / first.total_contributing - 1) * 100
+
+# Implied investment return: SF3 never reports a return figure directly, but the
+# fund-account identity (opening assets + income - expenditure +/- investment
+# gains = closing assets) means it can be backed out. "Income" here already
+# includes investment income (dividends, interest); what's left over after
+# removing contributions and adding back total spend is price appreciation.
+sector["implied_return_pct"] = (
+    (sector.total_assets - sector.assets_start - sector.contrib_employee
+     - sector.contrib_employer + sector.total_expenditure) / sector.assets_start * 100
+)
+sector["empr_yoy"] = sector["contrib_employer"].pct_change() * 100
+sector["empe_yoy"] = sector["contrib_employee"].pct_change() * 100
+VALUATION_YEARS = {"2017-18", "2020-21", "2023-24"}
 
 def flow_desc(value_000s):
     sign = "shortfall" if value_000s < 0 else "surplus"
@@ -388,6 +437,74 @@ with c4:
     )
 
 st.write("")
+st.subheader("Digging a bit deeper")
+st.caption("SF3 doesn't report either of these directly, both are worked out from the numbers it does report")
+c5, c6 = st.columns(2)
+
+with c5:
+    st.markdown("**What's actually driving the growth?**")
+    st.caption("Implied investment return: the change in assets left over once contributions and spending are stripped out")
+    fig5 = go.Figure()
+    colors = [GOOD if v >= 0 else BAD for v in sector["implied_return_pct"]]
+    fig5.add_trace(go.Bar(x=sector["year"], y=sector["implied_return_pct"], marker_color=colors))
+    fig5.add_hline(y=0, line=dict(color="#8C96A0", width=1))
+    fig5.update_layout(
+        height=250, margin=dict(l=0, r=0, t=10, b=0), showlegend=False,
+        plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID, title="Implied return, %"),
+        font=dict(color="#1C2B3A"),
+    )
+    st.plotly_chart(fig5, width="stretch")
+    if len(sector) >= 2:
+        worst_ret = sector.loc[sector["implied_return_pct"].idxmin()]
+        best_ret = sector.loc[sector["implied_return_pct"].idxmax()]
+        insight(
+            f"Nobody reports a return figure in SF3, this is backed out from the accounts, "
+            f"and it lines up with what actually happened in markets: {worst_ret.implied_return_pct:+.0f}% "
+            f"in {worst_ret.year}, the roughest year in this window, and {best_ret.implied_return_pct:+.0f}% "
+            f"in {best_ret.year}, the strongest. The point isn't the precision, it's that the "
+            f"sector's asset growth is almost entirely about market conditions, not contributions "
+            f"or membership, which barely move year to year by comparison."
+        )
+    else:
+        insight(f"{sector.iloc[0].implied_return_pct:+.0f}% implied return in {snapshot_year}. Widen the year range to see how much this swings year to year.")
+
+with c6:
+    st.markdown("**Employer contributions move in 3-year steps**")
+    st.caption("Year-on-year change in contributions received, employer vs. employee")
+    fig6 = go.Figure()
+    plot_df = sector.iloc[1:]
+    fig6.add_trace(go.Bar(x=plot_df["year"], y=plot_df["empr_yoy"], name="Employer", marker_color=ACCENT))
+    fig6.add_trace(go.Bar(x=plot_df["year"], y=plot_df["empe_yoy"], name="Employee", marker_color=ACCENT2))
+    fig6.add_hline(y=0, line=dict(color="#8C96A0", width=1))
+    fig6.update_layout(
+        height=250, margin=dict(l=0, r=0, t=10, b=0), barmode="group",
+        plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(showgrid=False), yaxis=dict(gridcolor=GRID, title="YoY change, %"),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.35, x=0),
+        font=dict(color="#1C2B3A"),
+    )
+    st.plotly_chart(fig6, width="stretch")
+    spikes_in_range = sorted(VALUATION_YEARS & set(plot_df["year"]))
+    if spikes_in_range:
+        spike_vals = ", ".join(f"{y} ({plot_df.loc[plot_df.year == y, 'empr_yoy'].iloc[0]:+.0f}%)" for y in spikes_in_range)
+        insight(
+            f"Employer contributions aren't smooth like employee contributions are, they jump "
+            f"in {spike_vals}: the first year of a new three-year rate set by the 2016, 2019 "
+            f"and 2022 actuarial valuations. Employee rates are fixed by national pay bands and "
+            f"barely move; employer rates are what each fund's actuary sets to close any funding "
+            f"gap, and many funds front-load that as a lump sum straight after the valuation "
+            f"rather than spreading it evenly, hence the spike-then-settle pattern."
+        )
+    else:
+        insight(
+            "Employee contributions move smoothly year to year because they're fixed by national "
+            "pay bands. Employer contributions don't: widen the year range to include 2017-18, "
+            "2020-21 or 2023-24 to see them jump, the first year of each new three-year rate set "
+            "by a triennial actuarial valuation."
+        )
+
+st.write("")
 t1, t2 = st.columns(2)
 with t1:
     st.subheader("Lowest cost per member")
@@ -403,5 +520,16 @@ with t2:
     pricey["Members"] = pricey["Members"].map("{:,.0f}".format)
     pricey["Cost / member"] = pricey["Cost / member"].map("£{:,.0f}".format)
     st.dataframe(pricey, hide_index=True, width="stretch")
+
+if len(sector) >= 2:
+    dispersion = load_growth_dispersion(first.year, snapshot_year)
+    if len(dispersion) >= 2:
+        worst_fund, best_fund = dispersion.iloc[0], dispersion.iloc[-1]
+        st.caption(
+            f"Same markets, same period, very different outcomes: fund value over {first.year} to "
+            f"{snapshot_year} ranged from {worst_fund.growth:+.0f}% ({worst_fund.local_authority}) "
+            f"to {best_fund.growth:+.0f}% ({best_fund.local_authority}) across {len(dispersion)} funds, "
+            f"against {assets_growth:+.0f}% for the sector as a whole."
+        )
 
 st.caption(f"The 10 largest funds hold {top10_share:.0f}% of total sector assets ({snapshot_year}) · source: gov.uk LGPS SF3 returns, {first.year} to {snapshot_year}")

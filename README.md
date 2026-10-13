@@ -88,6 +88,21 @@ swaps the assets chart for an indexed fund-vs-sector comparison and adds
 that fund's own numbers (rank, cost per member, cash flow, membership mix)
 into each readout.
 
+Two numbers below that aren't in the source data at all, both backed out
+from the accounts SF3 does report:
+
+- **Implied investment return**: SF3 never states a return figure, but the
+  fund-account identity (opening assets + income − expenditure ± investment
+  gains = closing assets) means it can be reconstructed. The result tracks
+  real market history almost exactly: -4% in 2019-20 (the COVID valuation
+  date), +24% the year after, -2% in 2022-23 (the gilts crisis).
+- **Employer contributions move in 3-year steps**: employee contributions
+  grow smoothly, they're set by national pay bands. Employer contributions
+  spike by 25-34% in 2017-18, 2020-21 and 2023-24, the first year of each
+  new rate set by the 2016, 2019 and 2022 triennial valuations, then ease
+  back, consistent with funds front-loading deficit recovery payments
+  rather than spreading them evenly across the 3-year cycle.
+
 ![Barnet highlighted against the sector average](dashboard/screenshot-fund.png)
 
 It reads `dashboard/data.csv`, a small (174KB) export of `fct_lgps_fund_year`
